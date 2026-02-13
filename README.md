@@ -51,15 +51,13 @@ Here is a list of the arguments that can be used with this tool.
 ![simple](examples/Os06t0160700-01.svg)
 
 ### 2. Deletion(s)
+![simple](examples/Os06t0160700-01_DEL_4000-5000.svg)
+
 ### 3. Insertion(s)
+![simple](examples/Os06t0160700-01_INS_100_500.svg)
+
 ### 4. Domain(s)
-
-
-```
-python GenoSee.py --input ./examples/Oryza_sativa_phased_100_markers_10_samples.csv --species Oryza_sativa
-```
-
-![img3](image/Os_filled_2-color_normal.png)
+![simple](examples/Os06t0160700-01_DOM_1-200_domain1_200-300_domain2_300-400_domain3.svg)
 
 ## Settings
 
