@@ -38,8 +38,6 @@ def draw_gene_structure(gene, output_svg, scale=2, extra_padding=100, shrink_fac
 
         if feat.feature_type == 'deletion':
 
-            print("直前のfeature_type", all_features[i-1].feature_type)
-
             # くの字型の折れ線（xの半分の長さ）
             y_line = y_pos + height_feature // 2
             mid_x = x_start + (x_end - x_start) / 2
@@ -318,5 +316,16 @@ def draw_gene_structure(gene, output_svg, scale=2, extra_padding=100, shrink_fac
                 fill="black"
             )
     )
+
+    # === canvas height を legend に合わせて再計算 ===
+    gene_bottom = y_pos + height_feature + 20
+    legend_bottom = legend_y + len(legend_items) * spacing
+
+    bottom_padding = 20
+    final_canvas_height = max(gene_bottom, legend_bottom) + bottom_padding
+
+    # SVG の高さを更新
+    dwg['height'] = final_canvas_height
+
 
     dwg.save()
