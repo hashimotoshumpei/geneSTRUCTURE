@@ -48,7 +48,7 @@ Here is a list of the arguments that can be used with this tool.
 ## Examples
 
 ### 1. Simple
-![simple](example/Os06t0160700-01.svg)
+![simple](examples/Os06t0160700-01.svg)
 
 ### 2. Deletion(s)
 ### 3. Insertion(s)
