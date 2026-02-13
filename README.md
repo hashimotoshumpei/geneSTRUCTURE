@@ -1,15 +1,12 @@
 ![img1](images/gs_logo.png)
 
-![GitHub Release](https://img.shields.io/github/v/release/hashimotoshumpei/GenoSee)
-![GitHub Release Date](https://img.shields.io/github/release-date/hashimotoshumpei/GenoSee)
-![GitHub last commit](https://img.shields.io/github/last-commit/hashimotoshumpei/GenoSee)
-![GitHub License](https://img.shields.io/github/license/hashimotoshumpei/GenoSee)
-`<img src="https://img.shields.io/badge/-Python-F9DC3E.svg?logo=python&style=flat">`
+![GitHub Release](https://img.shields.io/github/v/release/hashimotoshumpei/geneSTRUCTURE)
+![GitHub Release Date](https://img.shields.io/github/release-date/hashimotoshumpei/geneSTRUCTURE)
+![GitHub last commit](https://img.shields.io/github/last-commit/hashimotoshumpei/geneSTRUCTURE)
+![GitHub License](https://img.shields.io/github/license/hashimotoshumpei/geneSTRUCTURE)
 
 # A high-quality visualization tool for gene structures
-
 ## Citation
-
 Hashimoto, yamada and Izawa. in prepareing.
 
 ## Getting Started
@@ -46,20 +43,16 @@ Here is a list of the arguments that can be used with this tool.
 | -------------------------- | ---------------------------------------------------------------------- |
 | `-h`, `--help`         | Displays this help message and basic documentation.                    |
 | `-i`, `--input`        | Specifies the file path of the input CSV file [required].              |
-| `-s`, `--species`      | Name of species to be analyzed [required].                             |
-| `-o`, `--output`       | Specifies the file path of the output image file.                      |
-| `--fill`                 | Fill between markers [default: on].                                    |
-| `--drawing_mode`         | Selects the drawing mode: normal, compare or zoomed [default: normal]. |
-| `--coloring_mode`        | Selects the color mode: 2-color or 3-color [default: 2-color]          |
-| `--display_marker_names` | Adds marker names at each position [default: on].                      |
-| `--chr`                  | Chromosome number of the region to zoom in.                            |
-| `--start`                | Start position of the region to zoom in.                               |
-| `--end`                  | End position of the region to zoom in.                                 |
-| `--dpi`                  | dpi of the output image(s).                                            |
+| `-o`, `--output`       | Specifies the dir path of the output image file.                      |
 
 ## Examples
 
-### 1. Chromosome-wide graphical genotype
+### 1. Simple
+
+### 2. Deletion(s)
+### 3. Insertion(s)
+### 4. Domain(s)
+
 
 ```
 python GenoSee.py --input ./examples/Oryza_sativa_phased_100_markers_10_samples.csv --species Oryza_sativa
