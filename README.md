@@ -36,7 +36,6 @@ You can use following csv files.
 | Os04t0648800-01 |   1-350   |            |        | 1-100:Kinase;101-200:domain1;201-300:domain2 |
 
 ### Options
-
 Here is a list of the arguments that can be used with this tool.
 
 | Flag                       | Description                                                            |
@@ -44,6 +43,12 @@ Here is a list of the arguments that can be used with this tool.
 | `-h`, `--help`         | Displays this help message and basic documentation.                    |
 | `-i`, `--input`        | Specifies the file path of the input CSV file [required].              |
 | `-o`, `--output`       | Specifies the dir path of the output image file.                      |
+
+## Run
+```
+python geneSTRUCTURE.py --input examples/gene_input.csv --gff examples/gff/transcripts.gff --output ./examples
+```
+
 
 ## Examples
 
@@ -60,87 +65,81 @@ Here is a list of the arguments that can be used with this tool.
 ![simple](examples/Os06t0160700-01_DOM_1-200_domain1_200-300_domain2_300-400_domain3.svg)
 
 ## Settings
-
-### Color
-
-The lengths of each chromosome for the following species are pre-registered in the database (chromosome_length.json)
-
-* *Oryza sativa*
-* *Sorghum bicolor*
-* *Zea mays*
-* *Triticum aestivum*
-* *Hordeum vulgare*
-* *Glycine max*
-* *Solanum lycopersicum*
-* *Arabidopsis thaliana*
-
-### How to add new species ?
-
-You can add chromosome lengths of new species from genome fasta file by using `add_chromosome_lengths.py` in this repo like this;
-
-``python add_chromosome_lengths.py path/to/your/file.fasta.gz path/to/your/chromosome_length_database.json your_species_name``
-
-> [!NOTE]
-> BioPython package needs to be installed before use.
->
-> `pip install BioPython`
-
-### How to make an input format from a VCF file ?
-
-By using `make_input_file_from_VCF.py`, you can create an input file for GenoSee from a VCF file.
-
-``python make_input_file_from_VCF.py path/to/your/VCF``
-
-> [!NOTE]
-> PyVCF package needs to be installed before use.
->
-> `pip install PyVCF`
-
-### How to custamize visualization results ?
-
-You can adjust the output diagram by directly modifying the variables within the functions responsible for each drawing mode. Each drawing mode corresponds to the following functions in `plotting.py`.
-
-| Drawing Mode | Responsible Function Name |
-| ------------ | ------------------------- |
-| normal       | create_normal_plot        |
-| compare      | create_comparison_plot    |
-| zoomed       | create_zoomed_plot        |
-
-Adjustable variables correspond to the following elements within the diagram.
-
-![img10](image/readme_img_2.png)
-
-### What color sets are used to visualize ?
-
-Following color pallettes are pre-registered in the database (color_set.json)
-
-* normal
-  ![img11](image/normal.png)
-* grays
-  ![img12](image/grays.png)
-* reds
-  ![img13](image/reds.png)
-* blues
-  ![img14](image/blues.png)
-
-### How to add new color sets ?
-
-By editing `color_set.json` directly, you can use new color sets for visualization. Please run  `GenoSee.py` with `--color_palette` as an argument like `--color_palette new_color_set` . In this version of GenoSee, The specification of the color set is somewhat redundant. "0|0", "1|1", "0|1" and ".|." are used in the `3-color` mode, whereas "0", "1" and "." are used in the `2-color` mode.
+For custamizing visualization, please edit config.py.
 
 ```
-"normal": {
-        "0|0": "gold",
-        "1|1": "dodgerblue",
-        "0": "gold",
-        "1": "dodgerblue",
-        "0|1": "limegreen",
-        ".|.": "gray",
-        ".": "gray"
+# =====================
+# 色とグラデーション設定フラグ
+# =====================
+
+utr_gradation = "off"
+exon_gradation = "off"
+domain_gradation = "off"
+
+FEATURE_COLORS = {
+    'exon': 'dodgerblue',  # lightblue
+    'CDS': 'dodgerblue',
+    'five_prime_UTR': 'white',  # orange
+    'three_prime_UTR': 'white',  # lightgreen
+    'intron': 'black',
+    'deletion': 'none',
+    'highlight_intron': 'blue',
 }
+
+# =====================
+# ★描画の色やスタイル設定
+# =====================
+
+# FEATURE_COLORS = {
+#     'exon': 'lightblue',
+#     'CDS': 'lightblue',
+#     'five_prime_UTR': 'orange',
+#     'three_prime_UTR': 'lightgreen',
+#     'intron': 'black',
+#     'domain': 'green',
+#     'deletion': 'none',  # 塗りつぶしなし（点線表示用）
+#     'highlight_intron': 'blue',
+# }
+
+FEATURE_OUTLINES = {
+    'exon': 'black',
+    'CDS': 'black',
+    'five_prime_UTR': 'black',
+    'three_prime_UTR': 'black',
+    'domain': 'black',
+}
+
+FEATURE_OUTLINE_ENABLED = {
+    'exon': True,
+    'CDS': True,
+    'five_prime_UTR': True,
+    'three_prime_UTR': True,
+    'domain': True,
+}
+
+FEATURE_OUTLINE_WIDTHS = {
+    'exon': 1,
+    'CDS': 1,
+    'five_prime_UTR': 1,
+    'three_prime_UTR': 1,
+    'domain': 1,
+    'intron': 1,
+}
+
+LEFT_MARGIN = 50  # 左側マージン
+
+
+DOMAIN_COLOR_PALETTE = [
+    "lightblue",  # blue
+    "lightcoral",  # orange
+    "lightgreen",  # green
+    "#d62728",  # red
+    "#9467bd",  # purple
+    "#8c564b",  # brown
+    "#e377c2",  # pink
+    "#7f7f7f",  # gray
+    "#bcbd22",  # olive
+    "#17becf",  # cyan
+]
+
 ```
-
-### What is ColabGenoSee ?
-
-![img](image/ColabGenoSee.png)
-ColabGenoSee is the Google Colab version of GenoSee.
-To use ColabGenoSee, first move the ColabGenoSee folder to your Google Drive, then open ColabGenoSee.ipynb in Google Colab and run it.
