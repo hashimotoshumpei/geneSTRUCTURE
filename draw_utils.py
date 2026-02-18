@@ -569,9 +569,9 @@ def draw_region_gene_structures(
                         dwg.polygon(
                             points=[
                                 (x_start, y_pos),
-                                (x_end - tip, y_pos),
-                                (x_end, y_pos + height_feature / 2),
-                                (x_end - tip, y_pos + height_feature),
+                                (x_end, y_pos),
+                                (x_end + tip, y_pos + height_feature / 2),
+                                (x_end, y_pos + height_feature),
                                 (x_start, y_pos + height_feature)
                             ],
                             fill=fill_color,
