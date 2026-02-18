@@ -354,12 +354,12 @@ def get_tick_params(range_size: int) -> tuple:
         return 100_000, "kb", 1000
     elif range_size >= 100_000:   # 100kb or more
         return 10_000, "kb", 1000
-    elif range_size >= 10_000:    # 10kb or more
+    elif range_size >= 5_000:     # 5kb or more
         return 1_000, "kb", 1000
     elif range_size >= 1_000:     # 1kb or more
-        return 100, "bp", 1
+        return 500, "bp", 1
     else:
-        return 10, "bp", 1
+        return 100, "bp", 1
 
 
 def draw_region_gene_structures(
