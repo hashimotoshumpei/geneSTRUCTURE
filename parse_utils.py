@@ -1,4 +1,5 @@
 from gene_classes import GeneFeature, GeneStructure
+from tqdm import tqdm
 
 # =====================
 # INPUTパーサ
@@ -55,7 +56,14 @@ def parse_domains(domain_str):
 def parse_gff_for_transcript(gff_file, transcript_id):
     gene_structure = None
     with open(gff_file) as f:
-        for line in f:
+        total_lines = sum(1 for _ in f)
+        
+    with open(gff_file) as f:
+        for line in tqdm(f,
+                 total=total_lines,
+                 desc="Parsing GFF",
+                 bar_format="{l_bar}{bar}"):
+
             if line.startswith("#") or not line.strip():
                 continue
             parts = line.strip().split("\t")
@@ -71,6 +79,7 @@ def parse_gff_for_transcript(gff_file, transcript_id):
             elif strand == '-':
                 feature = GeneFeature(seqid, int(end)*-1, int(start)*-1, feature_type, strand)
             gene_structure.add_feature(feature)
+            
     return gene_structure
 
 
