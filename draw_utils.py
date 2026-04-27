@@ -57,6 +57,54 @@ def get_tick_params(range_size: int, shrink_factor: float = 30.0, scale: float =
         return step, "bp", 1
 
 
+def get_insertion_base_width(length_bp: int, shrink_factor: float, scale: float) -> float:
+    """
+    挿入の長さに応じて逆三角形の底辺幅を計算
+    """
+    # 実際のbp長をスケール変換
+    scaled_width = (length_bp / shrink_factor) * scale
+
+    # 最小幅と最大幅を設定
+    min_width = 8
+    max_width = 40
+
+    return max(min_width, min(scaled_width, max_width))
+
+
+def get_baseline_segments(actual_min_start: int, actual_max_end: int, deletion_regions: List[any]) -> List[tuple]:
+    """
+    全体の開始・終了座標とデリーション領域を基に、
+    デリーションを避けたベースラインのセグメントリストを返す
+    """
+    if actual_min_start >= actual_max_end:
+        return []
+    
+    segments = [(actual_min_start, actual_max_end)]
+    
+    for deletion in deletion_regions:
+        if hasattr(deletion, 'start'):
+            del_start, del_end = deletion.start, deletion.end
+        elif isinstance(deletion, dict):
+            del_start, del_end = deletion['start'], deletion['end']
+        elif isinstance(deletion, (list, tuple)) and len(deletion) == 2:
+            del_start, del_end = deletion
+        else:
+            continue
+            
+        new_segments = []
+        for seg_start, seg_end in segments:
+            if seg_end < del_start or seg_start > del_end:
+                new_segments.append((seg_start, seg_end))
+            else:
+                if seg_start < del_start:
+                    new_segments.append((seg_start, del_start - 1))
+                if seg_end > del_end:
+                    new_segments.append((del_end + 1, seg_end))
+        segments = new_segments
+        
+    return [s for s in segments if s[0] < s[1]]
+
+
 # 描画関数
 def draw_gene_structure(gene, output_svg, scale=2, extra_padding=100, shrink_factor=30.0,
                         coordinate_mode="relative"):
