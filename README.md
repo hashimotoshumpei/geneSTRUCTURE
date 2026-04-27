@@ -26,6 +26,16 @@ python geneSTRUCTURE.py --help
 * Python3
 * svgwrite
 
+#### Install `svgwrite`
+Using pip
+```
+pip install svgwrite
+```
+Using conda
+```
+conda install -c conda-forge svgwrite
+```
+
 ### Input data
 
 You can use following csv files.
