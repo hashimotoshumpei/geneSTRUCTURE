@@ -18,21 +18,18 @@ class CoordinateMode(str, Enum):
 # =====================
 
 class Insertion:
-    def __init__(self, position, length, color="black"):
+    def __init__(self, position, length):
         self.position = position
         self.length = length
-        self.color = color
 
 class Snp:
-    def __init__(self, position, color="black"):
+    def __init__(self, position):
         self.position = position
-        self.color = color
 
 class Deletion:
-    def __init__(self, start, end, color="black"):
+    def __init__(self, start, end):
         self.start = start
         self.end = end
-        self.color = color
 
 
 # =====================
@@ -77,11 +74,10 @@ class GeneStructure:
             elif isinstance(ins, (list, tuple)) and len(ins) >= 2:
                 pos = ins[0]
                 length = ins[1]
-                color = ins[2] if len(ins) > 2 else "black"
-                self.insertions.append(Insertion(pos, length, color))
+                self.insertions.append(Insertion(pos, length))
             else:
                 # 単なる位置 (int)
-                self.insertions.append(Insertion(ins, 1, "black"))
+                self.insertions.append(Insertion(ins, 1))
 
     def add_snps(self, snps):
         """
@@ -91,10 +87,10 @@ class GeneStructure:
         for s in snps:
             if isinstance(s, Snp):
                 self.snps.append(s)
-            elif isinstance(s, (list, tuple)) and len(s) >= 2:
-                self.snps.append(Snp(s[0], s[1]))
+            elif isinstance(s, (list, tuple)) and len(s) >= 1:
+                self.snps.append(Snp(s[0]))
             else:
-                self.snps.append(Snp(s, "black"))
+                self.snps.append(Snp(s))
 
     def normalize_features(self):
         """
@@ -225,10 +221,9 @@ class GeneStructure:
             if isinstance(d, Deletion):
                 self.deletion_regions.append(d)
             elif isinstance(d, (list, tuple)) and len(d) >= 2:
-                color = d[2] if len(d) > 2 else "black"
-                self.deletion_regions.append(Deletion(d[0], d[1], color))
+                self.deletion_regions.append(Deletion(d[0], d[1]))
             elif isinstance(d, dict):
-                self.deletion_regions.append(Deletion(d['start'], d['end'], d.get('color', 'black')))
+                self.deletion_regions.append(Deletion(d['start'], d['end']))
 
         new_features = []
         structural_types = {'exon', 'CDS', 'five_prime_UTR', 'three_prime_UTR', 'intron'}
@@ -237,7 +232,7 @@ class GeneStructure:
         for d in self.deletion_regions:
             new_features.append(GeneFeature(
                 self.seqid, d.start, d.end,
-                'deletion', self.strand, {'color': d.color}
+                'deletion', self.strand, {}
             ))
 
         for feature in self.features:

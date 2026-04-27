@@ -12,7 +12,9 @@ FEATURE_COLORS = {
     'five_prime_UTR': 'white',  # orange
     'three_prime_UTR': 'white',  # lightgreen
     'intron': 'black',
-    'deletion': 'none',
+    'deletion': 'black',
+    'insertion': 'black',
+    'snp': 'black',
     'highlight_intron': 'blue',
 }
 

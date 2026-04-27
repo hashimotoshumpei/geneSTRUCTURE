@@ -240,7 +240,7 @@ def draw_gene_structure(gene, output_svg, scale=2, extra_padding=100, shrink_fac
                         (x_end, y_line)
                     ],
                     fill='none',
-                    stroke='black',
+                    stroke=FEATURE_COLORS.get('deletion', 'black'),
                     stroke_width=1,
                     stroke_dasharray="2,2"
                 )
@@ -298,12 +298,11 @@ def draw_gene_structure(gene, output_svg, scale=2, extra_padding=100, shrink_fac
         if hasattr(ins, 'position'):
             ins_pos = ins.position
             ins_length = getattr(ins, 'length', 1)
-            ins_color = getattr(ins, 'color', 'black')
         else:
             ins_pos = ins
             ins_length = 1
-            ins_color = "black"
 
+        ins_color = FEATURE_COLORS.get('insertion', 'black')
         x = LEFT_MARGIN + (ins_pos + shift) / shrink_factor * scale
         # 挿入の長さに応じて幅を計算
         base_width = get_insertion_base_width(ins_length, shrink_factor, scale)
@@ -331,11 +330,10 @@ def draw_gene_structure(gene, output_svg, scale=2, extra_padding=100, shrink_fac
     for snp in getattr(gene, "snps", []):
         if hasattr(snp, 'position'):
             snp_pos = snp.position
-            snp_color = getattr(snp, 'color', 'black')
         else:
             snp_pos = snp
-            snp_color = "black"
 
+        snp_color = FEATURE_COLORS.get('snp', 'black')
         x = LEFT_MARGIN + (snp_pos + shift) / shrink_factor * scale
         dwg.add(
             dwg.line(
@@ -406,6 +404,7 @@ def draw_gene_structure(gene, output_svg, scale=2, extra_padding=100, shrink_fac
             x1 = legend_x + box_size // 2
             x2 = legend_x + box_size
 
+            del_color = FEATURE_COLORS.get('deletion', 'black')
             dwg.add(
                 dwg.polyline(
                     points=[
@@ -414,7 +413,7 @@ def draw_gene_structure(gene, output_svg, scale=2, extra_padding=100, shrink_fac
                         (x2, y_mid)
                     ],
                     fill="none",
-                    stroke="black",
+                    stroke=del_color,
                     stroke_width=1.5,
                     stroke_dasharray="2,2"
                 )
@@ -427,6 +426,7 @@ def draw_gene_structure(gene, output_svg, scale=2, extra_padding=100, shrink_fac
             x1 = legend_x + box_size // 2
             x2 = legend_x + box_size
 
+            ins_color = FEATURE_COLORS.get('insertion', 'black')
             dwg.add(
                 dwg.polygon(
                     points=[
@@ -434,19 +434,20 @@ def draw_gene_structure(gene, output_svg, scale=2, extra_padding=100, shrink_fac
                         (x2, y_mid - 4),
                         (x1, y_mid + 4)
                     ],
-                    fill="black",
-                    stroke="black",
+                    fill=ins_color,
+                    stroke=ins_color,
                     stroke_width=1.5
                 )
             )
 
         # === SNP ===
         elif feat_key == 'snp':
+            snp_color = FEATURE_COLORS.get('snp', 'black')
             dwg.add(
                 dwg.line(
                     start=(legend_x + box_size // 2, y_legend),
                     end=(legend_x + box_size // 2, y_legend + box_size),
-                    stroke="black",
+                    stroke=snp_color,
                     stroke_width=1.2
                 )
             )
@@ -692,12 +693,11 @@ def draw_region_gene_structures(
             if hasattr(ins, 'position'):
                 ins_pos = ins.position
                 ins_length = getattr(ins, 'length', 1)
-                ins_color = getattr(ins, 'color', 'black')
             else:
                 ins_pos = ins
                 ins_length = 1
-                ins_color = "black"
 
+            ins_color = FEATURE_COLORS.get('insertion', 'black')
             x = LEFT_MARGIN + (ins_pos - draw_start) / shrink_factor * scale
             base_width = get_insertion_base_width(ins_length, shrink_factor, scale)
 
@@ -723,11 +723,10 @@ def draw_region_gene_structures(
         for snp in getattr(gene, "snps", []):
             if hasattr(snp, "position"):
                 snp_pos = snp.position
-                snp_color = getattr(snp, "color", "black")
             else:
                 snp_pos = snp
-                snp_color = "black"
 
+            snp_color = FEATURE_COLORS.get('snp', 'black')
             x = LEFT_MARGIN + (snp_pos - draw_start) / shrink_factor * scale
             dwg.add(
                 dwg.line(
@@ -779,7 +778,18 @@ def draw_region_gene_structures(
         if feat_key == 'deletion':
             # くの字型
             y_mid = y_legend + box_size // 2
-            dwg.add(dwg.polyline(points=[(legend_x, y_mid), (legend_x + box_size // 2, y_mid - 6), (legend_x + box_size, y_mid)], fill="none", stroke="black", stroke_width=1.5, stroke_dasharray="2,2"))
+            del_color = FEATURE_COLORS.get('deletion', 'black')
+            dwg.add(dwg.polyline(points=[(legend_x, y_mid), (legend_x + box_size // 2, y_mid - 6), (legend_x + box_size, y_mid)], fill="none", stroke=del_color, stroke_width=1.5, stroke_dasharray="2,2"))
+        elif feat_key == 'insertion':
+            y_mid = y_legend + box_size // 2
+            x0 = legend_x
+            x1 = legend_x + box_size // 2
+            x2 = legend_x + box_size
+            ins_color = FEATURE_COLORS.get('insertion', 'black')
+            dwg.add(dwg.polygon(points=[(x0, y_mid - 4), (x2, y_mid - 4), (x1, y_mid + 4)], fill=ins_color, stroke=ins_color, stroke_width=1.5))
+        elif feat_key == 'snp':
+            snp_color = FEATURE_COLORS.get('snp', 'black')
+            dwg.add(dwg.line(start=(legend_x + box_size // 2, y_legend), end=(legend_x + box_size // 2, y_legend + box_size), stroke=snp_color, stroke_width=1.2))
         elif feat_key == 'intron':
             y_line = y_legend + box_size // 2
             dwg.add(dwg.line(start=(legend_x, y_line), end=(legend_x + box_size, y_line), stroke=FEATURE_COLORS.get('intron', 'black'), stroke_width=1))
