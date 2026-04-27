@@ -21,10 +21,10 @@ cd geneSTRUCTURE
 python geneSTRUCTURE.py --help
 ```
 
-### Requirement
+### Requirement (tested with)
 
-* Python3
-* svgwrite
+* Python 3.10.4 
+* svgwrite 1.4.3 
 
 #### Install `svgwrite`
 Using pip
