@@ -66,8 +66,8 @@ def parse_args():
         "--coordinate-mode",
         dest="coordinate_mode",
         choices=["relative", "absolute"],
-        default="relative",
-        help="Coordinate mode: relative (default) or absolute (genomic coordinates)"
+        default=None,
+        help="Coordinate mode: relative or absolute. If not specified, the coordinate axis is not drawn."
     )
 
     args = parser.parse_args()

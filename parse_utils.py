@@ -85,10 +85,8 @@ def parse_gff_for_transcript(gff_file, transcript_id):
                 continue
             if gene_structure is None:
                 gene_structure = GeneStructure(transcript_id, seqid, strand)
-            if strand == '+':
-                feature = GeneFeature(seqid, int(start), int(end), feature_type, strand)
-            elif strand == '-':
-                feature = GeneFeature(seqid, int(end)*-1, int(start)*-1, feature_type, strand)
+            
+            feature = GeneFeature(seqid, int(start), int(end), feature_type, strand)
             gene_structure.add_feature(feature)
             
     return gene_structure
@@ -208,9 +206,9 @@ def parse_attributes(attr_string):
 
 
 
-def get_terminal_feature(features):
+def get_terminal_feature(features, strand='+'):
     """
-    右端（最大 end）にある feature を返す。
+    3'端にある feature を返す。
     優先順位: three_prime_UTR > CDS > exon
     """
     priority = ['three_prime_UTR', 'CDS', 'exon']
@@ -218,7 +216,10 @@ def get_terminal_feature(features):
     for ftype in priority:
         candidates = [f for f in features if f.feature_type == ftype]
         if candidates:
-            return max(candidates, key=lambda f: f.end)
+            if strand == '+':
+                return max(candidates, key=lambda f: f.end)
+            else:
+                return min(candidates, key=lambda f: f.start)
 
     return None
 
