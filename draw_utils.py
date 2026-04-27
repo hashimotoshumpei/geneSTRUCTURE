@@ -57,6 +57,54 @@ def get_tick_params(range_size: int, shrink_factor: float = 30.0, scale: float =
         return step, "bp", 1
 
 
+def get_insertion_base_width(length_bp: int, shrink_factor: float, scale: float) -> float:
+    """
+    挿入の長さに応じて逆三角形の底辺幅を計算
+    """
+    # 実際のbp長をスケール変換
+    scaled_width = (length_bp / shrink_factor) * scale
+
+    # 最小幅と最大幅を設定
+    min_width = 8
+    max_width = 40
+
+    return max(min_width, min(scaled_width, max_width))
+
+
+def get_baseline_segments(actual_min_start: int, actual_max_end: int, deletion_regions: List[any]) -> List[tuple]:
+    """
+    全体の開始・終了座標とデリーション領域を基に、
+    デリーションを避けたベースラインのセグメントリストを返す
+    """
+    if actual_min_start >= actual_max_end:
+        return []
+    
+    segments = [(actual_min_start, actual_max_end)]
+    
+    for deletion in deletion_regions:
+        if hasattr(deletion, 'start'):
+            del_start, del_end = deletion.start, deletion.end
+        elif isinstance(deletion, dict):
+            del_start, del_end = deletion['start'], deletion['end']
+        elif isinstance(deletion, (list, tuple)) and len(deletion) == 2:
+            del_start, del_end = deletion
+        else:
+            continue
+            
+        new_segments = []
+        for seg_start, seg_end in segments:
+            if seg_end < del_start or seg_start > del_end:
+                new_segments.append((seg_start, seg_end))
+            else:
+                if seg_start < del_start:
+                    new_segments.append((seg_start, del_start - 1))
+                if seg_end > del_end:
+                    new_segments.append((del_end + 1, seg_end))
+        segments = new_segments
+        
+    return [s for s in segments if s[0] < s[1]]
+
+
 # 描画関数
 def draw_gene_structure(gene, output_svg, scale=2, extra_padding=100, shrink_factor=30.0,
                         coordinate_mode="relative"):
@@ -67,21 +115,8 @@ def draw_gene_structure(gene, output_svg, scale=2, extra_padding=100, shrink_fac
     all_features = gene.get_sorted_features()
     terminal_feature = get_terminal_feature(all_features)
     
-    if not all_features:
-        actual_min_start, actual_max_end = 0, 0
-    else:
-        actual_min_start = min(f.start for f in all_features)
-        actual_max_end = max(f.end for f in all_features)
-
-    # SNPs and Insertions can extend the range
-    for snp in gene.snps:
-        pos = getattr(snp, 'position', snp)
-        actual_min_start = min(actual_min_start, pos)
-        actual_max_end = max(actual_max_end, pos)
-    for ins in gene.insertions:
-        pos = getattr(ins, 'position', ins)
-        actual_min_start = min(actual_min_start, pos)
-        actual_max_end = max(actual_max_end, pos)
+    # Calculate true extents including SNPs and Insertions
+    actual_min_start, actual_max_end = gene.get_full_extent()
 
     # 描画用にシフト (内部座標を0付近に)
     shift = -actual_min_start
@@ -259,10 +294,19 @@ def draw_gene_structure(gene, output_svg, scale=2, extra_padding=100, shrink_fac
     triangle_height = 6
     y_triangle = y_pos - 8  # exon の少し上
 
-    for ins_pos in getattr(gene, "insertions", []):
+    for ins in getattr(gene, "insertions", []):
+        if hasattr(ins, 'position'):
+            ins_pos = ins.position
+            ins_length = getattr(ins, 'length', 1)
+            ins_color = getattr(ins, 'color', 'black')
+        else:
+            ins_pos = ins
+            ins_length = 1
+            ins_color = "black"
+
         x = LEFT_MARGIN + (ins_pos + shift) / shrink_factor * scale
         # 挿入の長さに応じて幅を計算
-        base_width = get_insertion_base_width(1, shrink_factor, scale)
+        base_width = get_insertion_base_width(ins_length, shrink_factor, scale)
 
         dwg.add(
             dwg.polygon(
@@ -271,8 +315,8 @@ def draw_gene_structure(gene, output_svg, scale=2, extra_padding=100, shrink_fac
                     (x + base_width / 2, y_triangle),
                     (x, y_triangle + triangle_height)
                 ],
-                fill="black",
-                stroke="black",
+                fill=ins_color,
+                stroke=ins_color,
                 stroke_width=1.5
             )
         )
@@ -284,13 +328,20 @@ def draw_gene_structure(gene, output_svg, scale=2, extra_padding=100, shrink_fac
     y_snp_top = y_pos - snp_extend_up
     y_snp_bottom = y_pos + height_feature + snp_extend_down
 
-    for snp_pos in getattr(gene, "snps", []):
+    for snp in getattr(gene, "snps", []):
+        if hasattr(snp, 'position'):
+            snp_pos = snp.position
+            snp_color = getattr(snp, 'color', 'black')
+        else:
+            snp_pos = snp
+            snp_color = "black"
+
         x = LEFT_MARGIN + (snp_pos + shift) / shrink_factor * scale
         dwg.add(
             dwg.line(
                 start=(x, y_snp_top),
                 end=(x, y_snp_bottom),
-                stroke="black",
+                stroke=snp_color,
                 stroke_width=1.2
             )
         )
@@ -484,11 +535,9 @@ def draw_region_gene_structures(
     # 各遺伝子の座標範囲を計算
     gene_ranges = []
     for idx, gene in enumerate(genes):
-        features = gene.get_sorted_features()
-        if features:
-            gs, ge = min(f.start for f in features), max(f.end for f in features)
-        else:
-            gs, ge = 0, 0
+        # Calculate true extents including SNPs and Insertions
+        gs, ge = gene.get_full_extent()
+            
         gene_ranges.append({
             'idx': idx, 'gene': gene, 'label': labels[idx], 'start': gs, 'end': ge
         })
@@ -634,6 +683,60 @@ def draw_region_gene_structures(
                 else:
                     # 通常の四角
                     dwg.add(dwg.rect(insert=(x_start, y_pos), size=(width, height_feature), fill=fill_color, stroke=stroke_color, stroke_width=stroke_width))
+
+        # === Insertions ===
+        triangle_height = 6
+        y_triangle = y_pos - 8
+
+        for ins in getattr(gene, "insertions", []):
+            if hasattr(ins, 'position'):
+                ins_pos = ins.position
+                ins_length = getattr(ins, 'length', 1)
+                ins_color = getattr(ins, 'color', 'black')
+            else:
+                ins_pos = ins
+                ins_length = 1
+                ins_color = "black"
+
+            x = LEFT_MARGIN + (ins_pos - draw_start) / shrink_factor * scale
+            base_width = get_insertion_base_width(ins_length, shrink_factor, scale)
+
+            dwg.add(
+                dwg.polygon(
+                    points=[
+                        (x - base_width / 2, y_triangle),
+                        (x + base_width / 2, y_triangle),
+                        (x, y_triangle + triangle_height)
+                    ],
+                    fill=ins_color,
+                    stroke=ins_color,
+                    stroke_width=1.5
+                )
+            )
+
+        # === SNPs ===
+        snp_extend_up = 8
+        snp_extend_down = 8
+        y_snp_top = y_pos - snp_extend_up
+        y_snp_bottom = y_pos + height_feature + snp_extend_down
+
+        for snp in getattr(gene, "snps", []):
+            if hasattr(snp, "position"):
+                snp_pos = snp.position
+                snp_color = getattr(snp, "color", "black")
+            else:
+                snp_pos = snp
+                snp_color = "black"
+
+            x = LEFT_MARGIN + (snp_pos - draw_start) / shrink_factor * scale
+            dwg.add(
+                dwg.line(
+                    start=(x, y_snp_top),
+                    end=(x, y_snp_bottom),
+                    stroke=snp_color,
+                    stroke_width=1.2
+                )
+            )
 
         # ドメインを描画（上層）
         for feat in all_features:

@@ -14,6 +14,28 @@ class CoordinateMode(str, Enum):
 
 
 # =====================
+# バリアントクラス
+# =====================
+
+class Insertion:
+    def __init__(self, position, length, color="black"):
+        self.position = position
+        self.length = length
+        self.color = color
+
+class Snp:
+    def __init__(self, position, color="black"):
+        self.position = position
+        self.color = color
+
+class Deletion:
+    def __init__(self, start, end, color="black"):
+        self.start = start
+        self.end = end
+        self.color = color
+
+
+# =====================
 # クラス定義
 # =====================
 
@@ -42,16 +64,95 @@ class GeneStructure:
         self.features.append(feature)
 
     def get_sorted_features(self):
-        # reverse = True if self.strand == '-' else False
         return sorted(self.features, key=lambda f: f.start, reverse=False)
 
-    def add_insertions(self, insertion_positions):
-        self.insertions = insertion_positions
+    def add_insertions(self, insertions):
+        """
+        List[Insertion] または List[int] または List[list] を受け取り、内部で Insertion オブジェクトとして保持
+        """
+        self.insertions = []
+        for ins in insertions:
+            if isinstance(ins, Insertion):
+                self.insertions.append(ins)
+            elif isinstance(ins, (list, tuple)) and len(ins) >= 2:
+                pos = ins[0]
+                length = ins[1]
+                color = ins[2] if len(ins) > 2 else "black"
+                self.insertions.append(Insertion(pos, length, color))
+            else:
+                # 単なる位置 (int)
+                self.insertions.append(Insertion(ins, 1, "black"))
 
-    def add_snps(self, snp_positions):
-        self.snps = snp_positions
+    def add_snps(self, snps):
+        """
+        List[Snp] または List[int] または List[list] を受け取り保持
+        """
+        self.snps = []
+        for s in snps:
+            if isinstance(s, Snp):
+                self.snps.append(s)
+            elif isinstance(s, (list, tuple)) and len(s) >= 2:
+                self.snps.append(Snp(s[0], s[1]))
+            else:
+                self.snps.append(Snp(s, "black"))
+
+    def normalize_features(self):
+        """
+        Feature の正規化処理（イントロン追加を含む）
+        1. exon + CDS + UTR → exon を削除
+        2. exon + CDS (UTRなし) → exon と CDS の差分から UTR を計算し、exon を削除
+        3. exon のみ → そのまま維持
+        4. イントロンを追加
+        """
+        exons = [f for f in self.features if f.feature_type == 'exon']
+        cds_list = [f for f in self.features if f.feature_type == 'CDS']
+        utrs = [f for f in self.features if f.feature_type in ('five_prime_UTR', 'three_prime_UTR')]
+
+        # Case 1 & 2: CDS がある場合
+        if cds_list:
+            # UTR がない場合、exon と CDS の差分から UTR を計算
+            if not utrs and exons:
+                self._compute_utrs_from_exon_cds(exons, cds_list)
+
+            # exon を削除（CDS + UTR で表現するため）
+            self.features = [f for f in self.features if f.feature_type != 'exon']
+
+        # Case 3: exon のみの場合はそのまま
+
+        # イントロンを追加
+        self.add_introns()
+
+    def _compute_utrs_from_exon_cds(self, exons, cds_list):
+        """
+        exon と CDS の差分から UTR を計算して追加
+        """
+        # CDS の全体範囲を取得
+        cds_start = min(c.start for c in cds_list)
+        cds_end = max(c.end for c in cds_list)
+
+        for exon in exons:
+            # 5' UTR: exon の開始から CDS の開始まで
+            if exon.start < cds_start and exon.end >= cds_start:
+                utr_end = min(exon.end, cds_start - 1)
+                if exon.start <= utr_end:
+                    self.features.append(GeneFeature(
+                        self.seqid, exon.start, utr_end,
+                        'five_prime_UTR', self.strand, {}
+                    ))
+
+            # 3' UTR: CDS の終了から exon の終了まで
+            if exon.end > cds_end and exon.start <= cds_end:
+                utr_start = max(exon.start, cds_end + 1)
+                if utr_start <= exon.end:
+                    self.features.append(GeneFeature(
+                        self.seqid, utr_start, exon.end,
+                        'three_prime_UTR', self.strand, {}
+                    ))
 
     def add_introns(self):
+        # 以前のイントロンがあれば削除
+        self.features = [f for f in self.features if f.feature_type != 'intron']
+        
         # exon / CDS / UTR をまとめて処理
         exon_like_list = sorted(
             [f for f in self.features if f.feature_type in ('exon', 'CDS', 'five_prime_UTR', 'three_prime_UTR')],
@@ -67,10 +168,24 @@ class GeneStructure:
 
     def add_domains(self, domain_regions):
         for domain in domain_regions:
-            start = domain['start']
-            end = domain['end']
-            name = domain.get('name', '')
-            color = domain.get('color', '')
+            # domain_regions can be list of dict or list of tuple
+            if isinstance(domain, dict):
+                start = domain['start']
+                end = domain['end']
+                name = domain.get('name', '')
+                color = domain.get('color', '')
+            else:
+                # tuple (start, end, name) or (start, end, name, color)
+                start = domain[0]
+                end = domain[1]
+                name = domain[2] if len(domain) > 2 else ''
+                color = domain[3] if len(domain) > 3 else ''
+
+            if not color:
+                color = get_domain_color(name, self.domain_color_map, DOMAIN_COLOR_PALETTE)
+            else:
+                self.domain_color_map[name] = color
+
             domain_feature = GeneFeature(
                 self.seqid,
                 start,
@@ -81,25 +196,69 @@ class GeneStructure:
             )
             self.features.append(domain_feature)
 
+    def get_full_extent(self):
+        """SNPや挿入を含めた、遺伝子構造の真の開始・終了座標を返す"""
+        starts = [f.start for f in self.features]
+        ends = [f.end for f in self.features]
+
+        for snp in self.snps:
+            pos = getattr(snp, 'position', snp)
+            starts.append(pos)
+            ends.append(pos)
+
+        for ins in self.insertions:
+            pos = getattr(ins, 'position', ins)
+            length = getattr(ins, 'length', 1)
+            starts.append(pos)
+            ends.append(pos + length - 1)
+
+        if not starts:
+            return 1, 1
+        return min(starts), max(ends)
+
     def update_features_with_deletions(self, deletion_regions):
-        self.deletion_regions = deletion_regions
+        """
+        List[Deletion] または List[tuple] または List[dict] を受け取り処理
+        """
+        self.deletion_regions = []
+        for d in deletion_regions:
+            if isinstance(d, Deletion):
+                self.deletion_regions.append(d)
+            elif isinstance(d, (list, tuple)) and len(d) >= 2:
+                color = d[2] if len(d) > 2 else "black"
+                self.deletion_regions.append(Deletion(d[0], d[1], color))
+            elif isinstance(d, dict):
+                self.deletion_regions.append(Deletion(d['start'], d['end'], d.get('color', 'black')))
+
         new_features = []
+        structural_types = {'exon', 'CDS', 'five_prime_UTR', 'three_prime_UTR', 'intron'}
 
         # まずデリーション自体をフィーチャーとして追加
-        for del_start, del_end in deletion_regions:
+        for d in self.deletion_regions:
             new_features.append(GeneFeature(
-                self.seqid, del_start, del_end,
-                'deletion', self.strand, {}
+                self.seqid, d.start, d.end,
+                'deletion', self.strand, {'color': d.color}
             ))
 
         for feature in self.features:
             if feature.feature_type == 'deletion':
                 continue
 
+            # 非構造的要素（ドメイン等）の場合、デリーションと重なれば削除する
+            if feature.feature_type not in structural_types:
+                overlaps = False
+                for d in self.deletion_regions:
+                    if not (feature.end < d.start or feature.start > d.end):
+                        overlaps = True
+                        break
+                if overlaps:
+                    continue
+
             f_start, f_end = feature.start, feature.end
             segments = [(f_start, f_end)]  # featureの元の範囲
 
-            for del_start, del_end in deletion_regions:
+            for d in self.deletion_regions:
+                del_start, del_end = d.start, d.end
                 updated_segments = []
 
                 for seg_start, seg_end in segments:
@@ -130,6 +289,16 @@ class GeneStructure:
         # 結果を更新
         self.features = new_features
 
+        # SNPと挿入のフィルタリング
+        if self.deletion_regions:
+            self.snps = [
+                s for s in self.snps 
+                if not any(d.start <= s.position <= d.end for d in self.deletion_regions)
+            ]
+            self.insertions = [
+                i for i in self.insertions 
+                if not any(d.start <= i.position <= d.end for d in self.deletion_regions)
+            ]
 
     def to_relative(self):
         exon_like = [f for f in self.features if f.feature_type in ('exon', 'CDS', 'five_prime_UTR', 'three_prime_UTR')]
@@ -161,68 +330,31 @@ class GeneStructure:
 
         # SNPと挿入も変換
         if hasattr(self, 'snps') and self.snps:
-            for i in range(len(self.snps)):
-                s = self.snps[i]
-                if hasattr(s, 'position'):
-                    pos = s.position
-                    if self.strand == '-':
-                        s.position = self.anchor - pos + 1
-                    else:
-                        s.position = pos - self.anchor + 1
+            for s in self.snps:
+                pos = s.position
+                if self.strand == '-':
+                    s.position = self.anchor - pos + 1
                 else:
-                    pos = s
-                    if self.strand == '-':
-                        self.snps[i] = self.anchor - pos + 1
-                    else:
-                        self.snps[i] = pos - self.anchor + 1
+                    s.position = pos - self.anchor + 1
         
         if hasattr(self, 'insertions') and self.insertions:
-            for i in range(len(self.insertions)):
-                ins = self.insertions[i]
-                if hasattr(ins, 'position'):
-                    pos = ins.position
-                    if self.strand == '-':
-                        ins.position = self.anchor - pos + 1
-                    else:
-                        ins.position = pos - self.anchor + 1
+            for ins in self.insertions:
+                pos = ins.position
+                if self.strand == '-':
+                    ins.position = self.anchor - pos + 1
                 else:
-                    pos = ins
-                    if self.strand == '-':
-                        self.insertions[i] = self.anchor - pos + 1
-                    else:
-                        self.insertions[i] = pos - anchor + 1
+                    ins.position = pos - self.anchor + 1
 
         # デリーション領域も変換
         if hasattr(self, 'deletion_regions') and self.deletion_regions:
-            for i in range(len(self.deletion_regions)):
-                d = self.deletion_regions[i]
-                if isinstance(d, dict):
-                    if self.strand == '-':
-                        s = self.anchor - d['start'] + 1
-                        e = self.anchor - d['end'] + 1
-                        d['start'] = min(s, e)
-                        d['end'] = max(s, e)
-                    else:
-                        d['start'] = d['start'] - self.anchor + 1
-                        d['end'] = d['end'] - self.anchor + 1
-                elif hasattr(d, 'start'):
-                    if self.strand == '-':
-                        s = self.anchor - d.start + 1
-                        e = self.anchor - d.end + 1
-                        d.start = min(s, e)
-                        d.end = max(s, e)
-                    else:
-                        d.start = d.start - self.anchor + 1
-                        d.end = d.end - self.anchor + 1
+            for d in self.deletion_regions:
+                s_orig, e_orig = d.start, d.end
+                if self.strand == '-':
+                    s = self.anchor - s_orig + 1
+                    e = self.anchor - e_orig + 1
+                    d.start, d.end = min(s, e), max(s, e)
                 else:
-                    # タプルの場合 (start, end)
-                    s_orig, e_orig = d
-                    if self.strand == '-':
-                        s = self.anchor - s_orig + 1
-                        e = self.anchor - e_orig + 1
-                        self.deletion_regions[i] = (min(s, e), max(s, e))
-                    else:
-                        self.deletion_regions[i] = (s_orig - self.anchor + 1, e_orig - self.anchor + 1)
+                    d.start, d.end = s_orig - self.anchor + 1, e_orig - self.anchor + 1
 
         return 1
 
