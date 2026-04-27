@@ -1,6 +1,7 @@
+import math
 import svgwrite
 from typing import List
-from gene_classes import GeneStructure
+from gene_classes import GeneStructure, CoordinateMode
 from parse_utils import get_terminal_feature
 from color_utils import get_or_create_gradient
 from config import (
@@ -9,26 +10,223 @@ from config import (
     FEATURE_OUTLINE_ENABLED
 )
 
-# 描画関数（修正）
-def draw_gene_structure(gene, output_svg, scale=2, extra_padding=100, shrink_factor=30.0):
-    
 
-    min_start = gene.to_relative()
+# =====================
+# スケールバー関数
+# =====================
+
+def get_scale_bar_params(max_length_bp: int) -> tuple:
+    """
+    最大遺伝子長に応じて適切なスケールバーの長さと単位を返す
+
+    Args:
+        max_length_bp: 最大遺伝子長（bp）
+
+    Returns:
+        (scale_bar_bp, unit_label, divisor)
+        例: (1000, "kb", 1000) → 1kbのスケールバー
+    """
+    if max_length_bp >= 100_000:   # 100kb以上
+        return 10_000, "kb", 1000
+    elif max_length_bp >= 10_000:  # 10kb以上
+        return 1_000, "kb", 1000
+    elif max_length_bp >= 1_000:   # 1kb以上
+        return 100, "bp", 1
+    elif max_length_bp >= 100:     # 100bp以上
+        return 50, "bp", 1
+    else:
+        return 10, "bp", 1
+
+
+def draw_scale_bar(dwg, x_pos: float, y_pos: float, scale_bar_bp: int,
+                   shrink_factor: float, scale: float, unit_label: str, divisor: int):
+    """
+    スケールバーを描画する
+
+    Args:
+        dwg: svgwrite.Drawingオブジェクト
+        x_pos: スケールバーの左端X座標
+        y_pos: スケールバーのY座標
+        scale_bar_bp: スケールバーの長さ（bp）
+        shrink_factor: 座標の縮小係数
+        scale: スケール倍率
+        unit_label: 単位ラベル（"bp" or "kb"）
+        divisor: 単位変換用の除数
+    """
+    # スケールバーの幅をピクセルで計算
+    bar_width = (scale_bar_bp / shrink_factor) * scale
+    bar_height = 6  # 縦線の高さ
+
+    # 水平線
+    dwg.add(dwg.line(
+        start=(x_pos, y_pos),
+        end=(x_pos + bar_width, y_pos),
+        stroke='black',
+        stroke_width=1.5
+    ))
+
+    # 左端の縦線
+    dwg.add(dwg.line(
+        start=(x_pos, y_pos - bar_height / 2),
+        end=(x_pos, y_pos + bar_height / 2),
+        stroke='black',
+        stroke_width=1.5
+    ))
+
+    # 右端の縦線
+    dwg.add(dwg.line(
+        start=(x_pos + bar_width, y_pos - bar_height / 2),
+        end=(x_pos + bar_width, y_pos + bar_height / 2),
+        stroke='black',
+        stroke_width=1.5
+    ))
+
+    # ラベル
+    if divisor == 1:
+        label_text = f"{scale_bar_bp} {unit_label}"
+    else:
+        label_text = f"{scale_bar_bp // divisor} {unit_label}"
+
+    dwg.add(dwg.text(
+        label_text,
+        insert=(x_pos + bar_width / 2, y_pos - 8),
+        font_size='11px',
+        fill='black',
+        text_anchor='middle'
+    ))
+
+# 描画関数（修正）
+def draw_gene_structure(gene, output_svg, scale=2, extra_padding=100, shrink_factor=30.0,
+                        show_scale_bar=False, coordinate_mode="relative"):
+    """
+    遺伝子構造をSVGに描画する
+
+    Args:
+        gene: GeneStructureオブジェクト
+        output_svg: 出力SVGファイルパス
+        scale: スケール倍率
+        extra_padding: 余白
+        shrink_factor: 座標の縮小係数
+        show_scale_bar: スケールバーを表示するか
+        coordinate_mode: "relative"（相対座標）または "absolute"（絶対座標）
+    """
+    # anchor（絶対座標モード用）を計算してから相対座標に変換
+    cds_list = [f for f in gene.features if f.feature_type in ('exon', 'CDS')]
+    anchor = min(cds_list, key=lambda f: f.start).start if cds_list else 0
+
+    # 相対座標モードの場合のみ to_relative() を呼ぶ
+    if coordinate_mode == "relative":
+        min_start = gene.to_relative()
+    else:
+        # 絶対座標モードでは相対座標に変換しない
+        min_start = min(f.start for f in gene.features) if gene.features else 0
+
     all_features = gene.get_sorted_features()
     terminal_feature = get_terminal_feature(all_features)
-
 
     print(f"terminal_feature: {terminal_feature.feature_type}")
     max_end = max(f.end / shrink_factor for f in all_features)
     shift = -min_start if min_start < 0 else 0
+
+    # スケールバー用のスペースを確保
+    scale_bar_height = 50 if show_scale_bar else 0
+    # 絶対座標モードでの座標軸用スペース
+    axis_height = 40 if coordinate_mode == "absolute" else 0
+
     canvas_width = LEFT_MARGIN + (max_end + shift / shrink_factor) * scale + extra_padding + 300
-    canvas_height = 300
+    canvas_height = 300 + scale_bar_height + axis_height
 
     dwg = svgwrite.Drawing(output_svg, size=(canvas_width, canvas_height))
     grad_dict = {}
-    y_pos = 50
+    y_pos = 50 + axis_height  # 座標軸がある場合は下にシフト
     height_feature = 15
     max_x_coord = LEFT_MARGIN + (max_end + shift / shrink_factor) * scale
+
+    # === 座標軸の描画（絶対座標モード時） ===
+    if coordinate_mode == "absolute":
+        axis_y = 30
+        actual_min_start = min(f.start for f in all_features) if all_features else 0
+        actual_max_end = max(f.end for f in all_features) if all_features else 0
+        range_bp = actual_max_end - actual_min_start
+
+        x_axis_start = LEFT_MARGIN + (actual_min_start / shrink_factor + shift / shrink_factor) * scale
+        x_axis_end = LEFT_MARGIN + (actual_max_end / shrink_factor + shift / shrink_factor) * scale
+
+        # 座標軸の線
+        dwg.add(dwg.line(
+            start=(x_axis_start, axis_y),
+            end=(x_axis_end, axis_y),
+            stroke='black',
+            stroke_width=1
+        ))
+
+        # 目盛りの計算
+        tick_interval, unit_label, divisor = get_tick_params(range_bp)
+
+        # マイナスストランドの場合は座標を逆順に表示
+        if gene.strand == '-':
+            # 最初の目盛り位置を計算（表示値ベースで丸める）
+            max_display_val = anchor
+            first_tick_label = math.floor(max_display_val / tick_interval) * tick_interval
+            first_tick = anchor - first_tick_label + actual_min_start
+
+            for tick_val in range(int(first_tick), int(actual_max_end) + 1, tick_interval):
+                if tick_val < actual_min_start - 0.1 or tick_val > actual_max_end + 0.1:
+                    continue
+                x = LEFT_MARGIN + (tick_val / shrink_factor + shift / shrink_factor) * scale
+
+                # 目盛り線
+                dwg.add(dwg.line(
+                    start=(x, axis_y),
+                    end=(x, axis_y + 5),
+                    stroke='black',
+                    stroke_width=1
+                ))
+
+                # 表示座標値（逆順）
+                display_tick_val = anchor - tick_val + actual_min_start
+                if divisor == 1:
+                    tick_label = f"{display_tick_val} {unit_label}"
+                else:
+                    tick_label = f"{display_tick_val // divisor} {unit_label}"
+
+                dwg.add(dwg.text(
+                    tick_label,
+                    insert=(x, axis_y - 5),
+                    font_size='9px',
+                    fill='black',
+                    text_anchor='middle'
+                ))
+        else:
+            # プラスストランド（通常の座標表示）
+            first_tick = ((actual_min_start // tick_interval) + 1) * tick_interval
+
+            for tick_val in range(int(first_tick), int(actual_max_end) + 1, tick_interval):
+                if tick_val < actual_min_start - 0.1 or tick_val > actual_max_end + 0.1:
+                    continue
+                x = LEFT_MARGIN + (tick_val / shrink_factor + shift / shrink_factor) * scale
+
+                # 目盛り線
+                dwg.add(dwg.line(
+                    start=(x, axis_y),
+                    end=(x, axis_y + 5),
+                    stroke='black',
+                    stroke_width=1
+                ))
+
+                # ラベル
+                if divisor == 1:
+                    tick_label = f"{tick_val} {unit_label}"
+                else:
+                    tick_label = f"{tick_val // divisor} {unit_label}"
+
+                dwg.add(dwg.text(
+                    tick_label,
+                    insert=(x, axis_y - 5),
+                    font_size='9px',
+                    fill='black',
+                    text_anchor='middle'
+                ))
 
     for i, feat in enumerate(all_features):
         x_start = LEFT_MARGIN + (feat.start / shrink_factor + shift / shrink_factor) * scale
@@ -319,8 +517,26 @@ def draw_gene_structure(gene, output_svg, scale=2, extra_padding=100, shrink_fac
             )
     )
 
+    # === スケールバーの描画（show_scale_bar=True の場合） ===
+    scale_bar_y = y_pos + height_feature + 40  # 遺伝子構造の下
+
+    if show_scale_bar:
+        # 最大遺伝子長を計算
+        actual_max_end = max(f.end for f in all_features) if all_features else 0
+        actual_min_start = min(f.start for f in all_features) if all_features else 0
+        max_length_bp = actual_max_end - actual_min_start
+
+        # スケールバーのパラメータを取得
+        scale_bar_bp, unit_label_sb, divisor_sb = get_scale_bar_params(max_length_bp)
+
+        # スケールバーを描画（左寄せ）
+        draw_scale_bar(dwg, LEFT_MARGIN, scale_bar_y, scale_bar_bp,
+                       shrink_factor, scale, unit_label_sb, divisor_sb)
+
     # === canvas height を legend に合わせて再計算 ===
     gene_bottom = y_pos + height_feature + 20
+    if show_scale_bar:
+        gene_bottom = scale_bar_y + 30  # スケールバーの下
     legend_bottom = legend_y + len(legend_items) * spacing
 
     bottom_padding = 20
@@ -328,7 +544,6 @@ def draw_gene_structure(gene, output_svg, scale=2, extra_padding=100, shrink_fac
 
     # SVG の高さを更新
     dwg['height'] = final_canvas_height
-
 
     dwg.save()
 
@@ -372,7 +587,9 @@ def draw_region_gene_structures(
     gene_spacing: int = 50,
     label_spacing: int = 10,
     scale: float = 2,
-    shrink_factor: float = 30.0
+    shrink_factor: float = 30.0,
+    show_scale_bar: bool = False,
+    coordinate_mode: str = "absolute"
 ):
     """
     Draw multiple gene structures on a common coordinate axis.
@@ -389,6 +606,8 @@ def draw_region_gene_structures(
         label_spacing: Spacing between label and gene structure (pixels)
         scale: Scale factor
         shrink_factor: Coordinate shrink factor
+        show_scale_bar: Whether to show scale bar
+        coordinate_mode: "relative" (offset from first position) or "absolute" (genomic coordinates)
     """
     height_feature = 15
 
@@ -479,6 +698,10 @@ def draw_region_gene_structures(
 
     # Draw tick marks
     tick_interval, unit_label, divisor = get_tick_params(draw_end - draw_start)
+
+    # coordinate_mode に応じた表示オフセットを計算
+    display_offset = draw_start if coordinate_mode == "absolute" else 0
+
     first_tick = ((draw_start // tick_interval) + 1) * tick_interval
 
     for tick_pos in range(first_tick, draw_end + 1, tick_interval):
@@ -492,11 +715,16 @@ def draw_region_gene_structures(
             stroke_width=1
         ))
 
-        # Label
-        if divisor == 1:
-            tick_label = f"{tick_pos} {unit_label}"
+        # Label (coordinate_mode に応じて表示値を変える)
+        if coordinate_mode == "relative":
+            display_tick_val = tick_pos - draw_start
         else:
-            tick_label = f"{tick_pos // divisor} {unit_label}"
+            display_tick_val = tick_pos
+
+        if divisor == 1:
+            tick_label = f"{display_tick_val} {unit_label}"
+        else:
+            tick_label = f"{display_tick_val // divisor} {unit_label}"
         dwg.add(dwg.text(
             tick_label,
             insert=(x, axis_y - 3),
@@ -719,5 +947,26 @@ def draw_region_gene_structures(
             font_size='12px',
             fill='black'
         ))
+
+    # === スケールバーの描画（show_scale_bar=True の場合） ===
+    if show_scale_bar:
+        # 最後のトラックの下にスケールバーを配置
+        last_track_y = top_margin + (num_tracks - 1) * (track_height + gene_spacing) + height_feature
+        scale_bar_y = last_track_y + 60
+
+        # 最大遺伝子長を計算
+        max_length_bp = draw_end - draw_start
+
+        # スケールバーのパラメータを取得
+        scale_bar_bp, unit_label_sb, divisor_sb = get_scale_bar_params(max_length_bp)
+
+        # スケールバーを描画（左寄せ）
+        draw_scale_bar(dwg, LEFT_MARGIN, scale_bar_y, scale_bar_bp,
+                       shrink_factor, scale, unit_label_sb, divisor_sb)
+
+        # canvas_height を更新
+        new_height = scale_bar_y + 50
+        if new_height > canvas_height:
+            dwg['height'] = new_height
 
     dwg.save()
