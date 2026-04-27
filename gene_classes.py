@@ -127,23 +127,44 @@ class GeneStructure:
         cds_end = max(c.end for c in cds_list)
 
         for exon in exons:
-            # 5' UTR: exon の開始から CDS の開始まで
-            if exon.start < cds_start and exon.end >= cds_start:
-                utr_end = min(exon.end, cds_start - 1)
-                if exon.start <= utr_end:
-                    self.features.append(GeneFeature(
-                        self.seqid, exon.start, utr_end,
-                        'five_prime_UTR', self.strand, {}
-                    ))
+            if self.strand == '-':
+                # マイナスストランド: 5' UTR は CDS より大きな座標、3' UTR は CDS より小さな座標
+                # 5' UTR: CDS の終了から exon の終了まで
+                if exon.end > cds_end and exon.start <= cds_end + 1:
+                    utr_start = max(exon.start, cds_end + 1)
+                    if utr_start <= exon.end:
+                        self.features.append(GeneFeature(
+                            self.seqid, utr_start, exon.end,
+                            'five_prime_UTR', self.strand, {}
+                        ))
 
-            # 3' UTR: CDS の終了から exon の終了まで
-            if exon.end > cds_end and exon.start <= cds_end:
-                utr_start = max(exon.start, cds_end + 1)
-                if utr_start <= exon.end:
-                    self.features.append(GeneFeature(
-                        self.seqid, utr_start, exon.end,
-                        'three_prime_UTR', self.strand, {}
-                    ))
+                # 3' UTR: exon の開始から CDS の開始まで
+                if exon.start < cds_start and exon.end >= cds_start - 1:
+                    utr_end = min(exon.end, cds_start - 1)
+                    if exon.start <= utr_end:
+                        self.features.append(GeneFeature(
+                            self.seqid, exon.start, utr_end,
+                            'three_prime_UTR', self.strand, {}
+                        ))
+            else:
+                # プラスストランド: 5' UTR は CDS より小さな座標、3' UTR は CDS より大きな座標
+                # 5' UTR: exon の開始から CDS の開始まで
+                if exon.start < cds_start and exon.end >= cds_start - 1:
+                    utr_end = min(exon.end, cds_start - 1)
+                    if exon.start <= utr_end:
+                        self.features.append(GeneFeature(
+                            self.seqid, exon.start, utr_end,
+                            'five_prime_UTR', self.strand, {}
+                        ))
+
+                # 3' UTR: CDS の終了から exon の終了まで
+                if exon.end > cds_end and exon.start <= cds_end + 1:
+                    utr_start = max(exon.start, cds_end + 1)
+                    if utr_start <= exon.end:
+                        self.features.append(GeneFeature(
+                            self.seqid, utr_start, exon.end,
+                            'three_prime_UTR', self.strand, {}
+                        ))
 
     def add_introns(self):
         # 以前のイントロンがあれば削除

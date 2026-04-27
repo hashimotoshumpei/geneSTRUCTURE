@@ -113,7 +113,7 @@ def draw_gene_structure(gene, output_svg, scale=2, extra_padding=100, shrink_fac
     """
     # 描画用に全フィーチャーをソートして取得
     all_features = gene.get_sorted_features()
-    terminal_feature = get_terminal_feature(all_features)
+    terminal_feature = get_terminal_feature(all_features, strand='+')
     
     # Calculate true extents including SNPs and Insertions
     actual_min_start, actual_max_end = gene.get_full_extent()
@@ -123,7 +123,7 @@ def draw_gene_structure(gene, output_svg, scale=2, extra_padding=100, shrink_fac
     range_bp = actual_max_end - actual_min_start
 
     # 座標軸用スペース
-    axis_height = 40
+    axis_height = 40 if coordinate_mode else 0
 
     canvas_width = LEFT_MARGIN + (range_bp / shrink_factor) * scale + extra_padding + 300
     canvas_height = 300 + axis_height
@@ -135,73 +135,74 @@ def draw_gene_structure(gene, output_svg, scale=2, extra_padding=100, shrink_fac
     max_x_coord = LEFT_MARGIN + (range_bp / shrink_factor) * scale
 
     # === 座標軸の描画 ===
-    axis_y = 30
-    x_axis_start = LEFT_MARGIN
-    x_axis_end = max_x_coord
+    if coordinate_mode:
+        axis_y = 30
+        x_axis_start = LEFT_MARGIN
+        x_axis_end = max_x_coord
 
-    # 座標軸の線
-    dwg.add(dwg.line(
-        start=(x_axis_start, axis_y),
-        end=(x_axis_end, axis_y),
-        stroke='black',
-        stroke_width=1
-    ))
-
-    # 目盛りの計算
-    tick_interval, unit_label, divisor = get_tick_params(range_bp, shrink_factor, scale)
-
-    # coordinate_mode に応じて表示用の開始座標を決定
-    display_anchor = gene.anchor if coordinate_mode == "absolute" else 1
-    
-    # 良い感じの目盛り値を計算するために、表示値ベースで最初の目盛りを決定
-    if coordinate_mode == "absolute" and gene.strand == '-':
-        # マイナスストランドの場合、tick_val が増えると display_tick_val は減る
-        max_display_val = display_anchor - actual_min_start + 1
-        first_tick_label = math.floor(max_display_val / tick_interval) * tick_interval
-        first_tick_val = display_anchor - first_tick_label + 1
-    else:
-        min_display_val = display_anchor + actual_min_start - 1
-        first_tick_label = math.ceil(min_display_val / tick_interval) * tick_interval
-        first_tick_val = first_tick_label - display_anchor + 1
-
-    # tick_val は内部相対座標
-    for tick_val in range(int(first_tick_val), int(actual_max_end) + 1, int(tick_interval)):
-        if tick_val < actual_min_start - 0.1 or tick_val > actual_max_end + 0.1:
-            continue
-            
-        x = LEFT_MARGIN + ((tick_val - actual_min_start) / shrink_factor) * scale
-
-        # 目盛り線
+        # 座標軸の線
         dwg.add(dwg.line(
-            start=(x, axis_y),
-            end=(x, axis_y + 5),
+            start=(x_axis_start, axis_y),
+            end=(x_axis_end, axis_y),
             stroke='black',
             stroke_width=1
         ))
 
-        # ラベル
-        if coordinate_mode == "absolute":
-            if gene.strand == '-':
-                display_tick_val = display_anchor - tick_val + 1
+        # 目盛りの計算
+        tick_interval, unit_label, divisor = get_tick_params(range_bp, shrink_factor, scale)
+
+        # coordinate_mode に応じて表示用の開始座標を決定
+        display_anchor = gene.anchor if coordinate_mode == "absolute" else 1
+        
+        # 良い感じの目盛り値を計算するために、表示値ベースで最初の目盛りを決定
+        if coordinate_mode == "absolute" and gene.strand == '-':
+            # マイナスストランドの場合、tick_val が増えると display_tick_val は減る
+            max_display_val = display_anchor - actual_min_start + 1
+            first_tick_label = math.floor(max_display_val / tick_interval) * tick_interval
+            first_tick_val = display_anchor - first_tick_label + 1
+        else:
+            min_display_val = display_anchor + actual_min_start - 1
+            first_tick_label = math.ceil(min_display_val / tick_interval) * tick_interval
+            first_tick_val = first_tick_label - display_anchor + 1
+
+        # tick_val は内部相対座標
+        for tick_val in range(int(first_tick_val), int(actual_max_end) + 1, int(tick_interval)):
+            if tick_val < actual_min_start - 0.1 or tick_val > actual_max_end + 0.1:
+                continue
+                
+            x = LEFT_MARGIN + ((tick_val - actual_min_start) / shrink_factor) * scale
+
+            # 目盛り線
+            dwg.add(dwg.line(
+                start=(x, axis_y),
+                end=(x, axis_y + 5),
+                stroke='black',
+                stroke_width=1
+            ))
+
+            # ラベル
+            if coordinate_mode == "absolute":
+                if gene.strand == '-':
+                    display_tick_val = display_anchor - tick_val + 1
+                else:
+                    display_tick_val = display_anchor + tick_val - 1
             else:
-                display_tick_val = display_anchor + tick_val - 1
-        else:
-            display_tick_val = tick_val
-            
-        display_tick_val = abs(display_tick_val)
+                display_tick_val = tick_val
+                
+            display_tick_val = abs(display_tick_val)
 
-        if divisor == 1:
-            tick_label = f"{display_tick_val} {unit_label}"
-        else:
-            tick_label = f"{display_tick_val // divisor} {unit_label}"
+            if divisor == 1:
+                tick_label = f"{display_tick_val} {unit_label}"
+            else:
+                tick_label = f"{display_tick_val // divisor} {unit_label}"
 
-        dwg.add(dwg.text(
-            tick_label,
-            insert=(x, axis_y - 5),
-            font_size='9px',
-            fill='black',
-            text_anchor='middle'
-        ))
+            dwg.add(dwg.text(
+                tick_label,
+                insert=(x, axis_y - 5),
+                font_size='9px',
+                fill='black',
+                text_anchor='middle'
+            ))
 
     # イントロン風のベースラインを描画 (デリーション領域を避ける)
     deletion_list = [f for f in all_features if f.feature_type == 'deletion']
@@ -594,7 +595,7 @@ def draw_region_gene_structures(
     # Canvas高さ（ラベルは遺伝子構造の下に表示するため、トラックごとに追加スペース）
     label_height = 15 if show_labels else 0
     track_height = height_feature + label_height + label_spacing
-    top_margin = 50  # 座標軸用のスペース
+    top_margin = 50 if coordinate_mode else 20  # 座標軸用のスペース
     canvas_height = top_margin + num_tracks * (track_height + gene_spacing) + 150
 
     # メモリ上にSVGを作成
@@ -602,33 +603,34 @@ def draw_region_gene_structures(
     grad_dict = {}
 
     # 座標軸を描画（上部）
-    axis_y = top_margin - 20
-    dwg.add(dwg.line(start=(LEFT_MARGIN, axis_y), end=(LEFT_MARGIN + axis_width, axis_y), stroke='black', stroke_width=1))
+    if coordinate_mode:
+        axis_y = top_margin - 20
+        dwg.add(dwg.line(start=(LEFT_MARGIN, axis_y), end=(LEFT_MARGIN + axis_width, axis_y), stroke='black', stroke_width=1))
 
-    # 目盛りを描画
-    tick_interval, unit_label, divisor = get_tick_params(range_bp, shrink_factor, scale)
-    first_tick = math.ceil(draw_start / tick_interval) * tick_interval
+        # 目盛りを描画
+        tick_interval, unit_label, divisor = get_tick_params(range_bp, shrink_factor, scale)
+        first_tick = math.ceil(draw_start / tick_interval) * tick_interval
 
-    for tick_pos in range(int(first_tick), int(draw_end) + 1, int(tick_interval)):
-        # 描画範囲外の tick は描画しない
-        if tick_pos < draw_start - 0.1 or tick_pos > draw_end + 0.1:
-            continue
-        x = LEFT_MARGIN + (tick_pos - draw_start) / shrink_factor * scale
-        # 目盛り線
-        dwg.add(dwg.line(start=(x, axis_y), end=(x, axis_y + 5), stroke='black', stroke_width=1))
+        for tick_pos in range(int(first_tick), int(draw_end) + 1, int(tick_interval)):
+            # 描画範囲外の tick は描画しない
+            if tick_pos < draw_start - 0.1 or tick_pos > draw_end + 0.1:
+                continue
+            x = LEFT_MARGIN + (tick_pos - draw_start) / shrink_factor * scale
+            # 目盛り線
+            dwg.add(dwg.line(start=(x, axis_y), end=(x, axis_y + 5), stroke='black', stroke_width=1))
 
-        # ラベル (coordinate_mode に応じて表示値を変える)
-        if coordinate_mode == "relative":
-            display_tick_val = tick_pos - draw_start + 1
-        else:
-            # 絶対座標の場合は絶対値（プラス表示）を保証
-            display_tick_val = abs(tick_pos)
+            # ラベル (coordinate_mode に応じて表示値を変える)
+            if coordinate_mode == "relative":
+                display_tick_val = tick_pos - draw_start + 1
+            else:
+                # 絶対座標の場合は絶対値（プラス表示）を保証
+                display_tick_val = abs(tick_pos)
 
-        if divisor == 1:
-            tick_label = f"{display_tick_val} {unit_label}"
-        else:
-            tick_label = f"{display_tick_val // divisor} {unit_label}"
-        dwg.add(dwg.text(tick_label, insert=(x, axis_y - 3), font_size='9px', fill='black', text_anchor='middle'))
+            if divisor == 1:
+                tick_label = f"{display_tick_val} {unit_label}"
+            else:
+                tick_label = f"{display_tick_val // divisor} {unit_label}"
+            dwg.add(dwg.text(tick_label, insert=(x, axis_y - 3), font_size='9px', fill='black', text_anchor='middle'))
 
     # 各遺伝子を描画
     for gene_info, track_idx in gene_track_assignments:
@@ -643,7 +645,7 @@ def draw_region_gene_structures(
             gs, ge = min(f.start for f in all_features), max(f.end for f in all_features)
             gene_center_x = LEFT_MARGIN + ((gs + ge) / 2 - draw_start) / shrink_factor * scale
 
-        terminal_feature = get_terminal_feature(all_features)
+        terminal_feature = get_terminal_feature(all_features, strand='+')
         
         deletion_list = [f for f in all_features if f.feature_type == 'deletion']
         # イントロン風のベースラインを描画 (デリーション領域を避ける)
@@ -685,7 +687,20 @@ def draw_region_gene_structures(
                 if feat is terminal_feature:
                     # 右端が尖った polygon
                     tip = height_feature // 2
-                    dwg.add(dwg.polygon(points=[(x_start, y_pos), (x_end - tip, y_pos), (x_end, y_pos + height_feature / 2), (x_end - tip, y_pos + height_feature), (x_start, y_pos + height_feature)], fill=fill_color, stroke=stroke_color, stroke_width=stroke_width))
+                    dwg.add(
+                        dwg.polygon(
+                            points=[
+                                (x_start, y_pos),
+                                (x_end - tip, y_pos),
+                                (x_end, y_pos + height_feature / 2),
+                                (x_end - tip, y_pos + height_feature),
+                                (x_start, y_pos + height_feature)
+                            ],
+                            fill=fill_color,
+                            stroke=stroke_color,
+                            stroke_width=stroke_width
+                        )
+                    )
                 else:
                     # 通常の四角
                     dwg.add(dwg.rect(insert=(x_start, y_pos), size=(width, height_feature), fill=fill_color, stroke=stroke_color, stroke_width=stroke_width))
