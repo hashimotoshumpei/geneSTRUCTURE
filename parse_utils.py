@@ -7,11 +7,22 @@ from tqdm import tqdm
 
 def parse_insertions(insertion_str):
     """
-    "100;200;1000" -> [100, 200, 1000]
+    "100-50;200-10" -> [(100, 50), (200, 10)]
     """
     if not insertion_str:
         return []
-    return [int(x) for x in insertion_str.split(";") if x.strip()]
+    insertions = []
+    for part in insertion_str.split(";"):
+        part = part.strip()
+        if not part:
+            continue
+        if "-" in part:
+            pos, length = part.split("-")
+            insertions.append((int(pos), int(length)))
+        else:
+            # 後方互換性のため
+            insertions.append((int(part), 1))
+    return insertions
 
 def parse_deletions(deletion_str):
     """

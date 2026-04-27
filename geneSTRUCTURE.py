@@ -116,7 +116,7 @@ def main():
         labels = [g.gene_id for g in genes]
 
         for gene in genes:
-            gene.add_introns()
+            gene.normalize_features()
 
         output_svg = f"{output_prefix}/{args.chromosome}_{args.start}-{args.end}.svg"
 
@@ -161,7 +161,7 @@ def main():
                     print(f"Skip: {transcript_id} not found")
                     continue
 
-                gene.add_introns()
+                gene.normalize_features()
 
                 # 相対座標に変換（変異を適用する前に行う）
                 # absolute モードの場合でも、内部的には相対座標で扱い、描画時に anchor を使って絶対座標に戻す
