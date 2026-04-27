@@ -63,13 +63,6 @@ def parse_args():
     )
 
     parser.add_argument(
-        "--scale-bar",
-        action="store_true",
-        default=False,
-        help="Display scale bar in the output SVG"
-    )
-
-    parser.add_argument(
         "--coordinate-mode",
         dest="coordinate_mode",
         choices=["relative", "absolute"],
@@ -112,7 +105,7 @@ def main():
     # Ensure output directory exists
     os.makedirs(output_prefix, exist_ok=True)
 
-    # Region mode
+    # Region mode (領域指定モード)
     if args.chromosome and args.start and args.end:
         genes = parse_gff_for_region(gff_file, args.chromosome, args.start, args.end)
 
@@ -133,13 +126,12 @@ def main():
             args.start,
             args.end,
             output_svg,
-            show_scale_bar=args.scale_bar,
             coordinate_mode=args.coordinate_mode
         )
         print(f"Finished! : {output_svg}")
         print(f"  Transcripts: {len(genes)}")
 
-    # Transcript mode (CSV input)
+    # Transcript mode (トランスクリプト指定モード / CSV入力)
     else:
         input_csv = args.input_csv
         with open(input_csv, newline="") as f:
@@ -171,21 +163,24 @@ def main():
 
                 gene.add_introns()
 
-                # domain（AA座標 → ゲノム）
-                # 注: 座標変換は draw_gene_structure() 内で行われる
+                # 相対座標に変換（変異を適用する前に行う）
+                # absolute モードの場合でも、内部的には相対座標で扱い、描画時に anchor を使って絶対座標に戻す
+                gene.to_relative()
+
+                # domain（AA座標 → ゲノム座標）
                 for start_aa, end_aa, name in domain_defs:
                     gene.add_domain_from_protein_coords(start_aa, end_aa, name)
 
-                # variants
+                # variants (相対座標ベースで適用)
                 gene.update_features_with_deletions(deletion_regions_relative)
                 gene.add_insertions(insertion_positions)
                 gene.add_snps(snp_positions)
 
+                # 最終的な座標系が整った状態で描画
                 output_svg = f"{output_prefix}/{transcript_id}{snps}{deletions}{insertions}{domains}.svg"
 
                 draw_gene_structure(
                     gene, output_svg,
-                    show_scale_bar=args.scale_bar,
                     coordinate_mode=args.coordinate_mode
                 )
                 print(f"Finished! : {output_svg}")

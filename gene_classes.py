@@ -34,13 +34,15 @@ class GeneStructure:
         self.features = []
         self.insertions = []
         self.snps = []
+        self.deletion_regions = []
         self.domain_color_map = {}
+        self.anchor = 0  # 基準となるゲノム座標を保存
 
     def add_feature(self, feature: GeneFeature):
         self.features.append(feature)
 
     def get_sorted_features(self):
-        #reverse = True if self.strand == '-' else False
+        # reverse = True if self.strand == '-' else False
         return sorted(self.features, key=lambda f: f.start, reverse=False)
 
     def add_insertions(self, insertion_positions):
@@ -80,21 +82,25 @@ class GeneStructure:
             self.features.append(domain_feature)
 
     def update_features_with_deletions(self, deletion_regions):
-
+        self.deletion_regions = deletion_regions
         new_features = []
 
-        for i, feature in enumerate(self.features):
+        # まずデリーション自体をフィーチャーとして追加
+        for del_start, del_end in deletion_regions:
+            new_features.append(GeneFeature(
+                self.seqid, del_start, del_end,
+                'deletion', self.strand, {}
+            ))
+
+        for feature in self.features:
+            if feature.feature_type == 'deletion':
+                continue
+
             f_start, f_end = feature.start, feature.end
             segments = [(f_start, f_end)]  # featureの元の範囲
 
             for del_start, del_end in deletion_regions:
                 updated_segments = []
-
-                if i == 0:
-                    new_features.append(GeneFeature(
-                        self.seqid, del_start, del_end,
-                        'deletion', self.strand, {}
-                    ))
 
                 for seg_start, seg_end in segments:
                     # 削除領域と重なっていなければそのまま残す
@@ -109,7 +115,7 @@ class GeneStructure:
                             updated_segments.append((del_end + 1, seg_end))
                 segments = updated_segments
 
-            # 分割後の有効セグメントが残っていれば追加（完全削除されたらスキップ）
+            # 分割後の有効セグメントが残っていれば追加
             for start, end in segments:
                 if start <= end:
                     new_features.append(GeneFeature(
@@ -126,25 +132,104 @@ class GeneStructure:
 
 
     def to_relative(self):
-        cds_list = [f for f in self.features if f.feature_type in ('exon', 'CDS')]
-        if not cds_list:
+        exon_like = [f for f in self.features if f.feature_type in ('exon', 'CDS', 'five_prime_UTR', 'three_prime_UTR')]
+        if not exon_like:
             return 0
-        #if self.strand == '+':
-        anchor = min(cds_list, key=lambda f: f.start).start
-        #else:
-            #anchor = max(cds_list, key=lambda f: f.start).end
+
+        # プラス鎖: 最小値が基準 (anchor)
+        # マイナス鎖: 最大値が基準 (anchor)
+        all_coords = []
+        for f in exon_like:
+            all_coords.append(f.start)
+            all_coords.append(f.end)
+        
+        if self.strand == '-':
+            self.anchor = max(all_coords)
+        else:
+            self.anchor = min(all_coords)
+
+        # すべてのフィーチャーを変換
         for f in self.features:
-            f.start = f.start - anchor + 1
-            f.end = f.end - anchor + 1
-        min_start = min(f.start for f in self.features)
-        return min_start
+            if self.strand == '-':
+                s = self.anchor - f.start + 1
+                e = self.anchor - f.end + 1
+                f.start = min(s, e)
+                f.end = max(s, e)
+            else:
+                f.start = f.start - self.anchor + 1
+                f.end = f.end - self.anchor + 1
+
+        # SNPと挿入も変換
+        if hasattr(self, 'snps') and self.snps:
+            for i in range(len(self.snps)):
+                s = self.snps[i]
+                if hasattr(s, 'position'):
+                    pos = s.position
+                    if self.strand == '-':
+                        s.position = self.anchor - pos + 1
+                    else:
+                        s.position = pos - self.anchor + 1
+                else:
+                    pos = s
+                    if self.strand == '-':
+                        self.snps[i] = self.anchor - pos + 1
+                    else:
+                        self.snps[i] = pos - self.anchor + 1
+        
+        if hasattr(self, 'insertions') and self.insertions:
+            for i in range(len(self.insertions)):
+                ins = self.insertions[i]
+                if hasattr(ins, 'position'):
+                    pos = ins.position
+                    if self.strand == '-':
+                        ins.position = self.anchor - pos + 1
+                    else:
+                        ins.position = pos - self.anchor + 1
+                else:
+                    pos = ins
+                    if self.strand == '-':
+                        self.insertions[i] = self.anchor - pos + 1
+                    else:
+                        self.insertions[i] = pos - anchor + 1
+
+        # デリーション領域も変換
+        if hasattr(self, 'deletion_regions') and self.deletion_regions:
+            for i in range(len(self.deletion_regions)):
+                d = self.deletion_regions[i]
+                if isinstance(d, dict):
+                    if self.strand == '-':
+                        s = self.anchor - d['start'] + 1
+                        e = self.anchor - d['end'] + 1
+                        d['start'] = min(s, e)
+                        d['end'] = max(s, e)
+                    else:
+                        d['start'] = d['start'] - self.anchor + 1
+                        d['end'] = d['end'] - self.anchor + 1
+                elif hasattr(d, 'start'):
+                    if self.strand == '-':
+                        s = self.anchor - d.start + 1
+                        e = self.anchor - d.end + 1
+                        d.start = min(s, e)
+                        d.end = max(s, e)
+                    else:
+                        d.start = d.start - self.anchor + 1
+                        d.end = d.end - self.anchor + 1
+                else:
+                    # タプルの場合 (start, end)
+                    s_orig, e_orig = d
+                    if self.strand == '-':
+                        s = self.anchor - s_orig + 1
+                        e = self.anchor - e_orig + 1
+                        self.deletion_regions[i] = (min(s, e), max(s, e))
+                    else:
+                        self.deletion_regions[i] = (s_orig - self.anchor + 1, e_orig - self.anchor + 1)
+
+        return 1
 
     def add_domain_from_protein_coords(self, start_aa: int, end_aa: int, domain_name: str):
         """
         アミノ酸座標（1-based）を基に、CDSからcDNA、そしてゲノム座標へと変換して
         ドメイン領域をfeaturesに追加する。
-
-        例: start_aa=10, end_aa=100 は、cDNA上で28-300に相当
         """
 
         # アミノ酸座標 → cDNA 座標（1-based）
@@ -153,14 +238,11 @@ class GeneStructure:
 
         # CDS features を取得してストランド順に並べ替え
         cds_features = [f for f in self.features if f.feature_type == 'CDS']
+        if self.strand == '-':
+            cds_sorted = sorted(cds_features, key=lambda f: f.start, reverse=True)
+        else:
+            cds_sorted = sorted(cds_features, key=lambda f: f.start)
 
-        cds_sorted = sorted(cds_features, key=lambda f: f.start)
-        # if self.strand == '+':
-        #     cds_sorted = sorted(cds_features, key=lambda f: f.start)
-        # else:
-        #     cds_sorted = sorted(cds_features, key=lambda f: f.start, reverse=True)
-
-        gdna_segments = []
         current_cdna_pos = 1
 
         for cds in cds_sorted:
@@ -181,15 +263,12 @@ class GeneStructure:
             offset_end = overlap_end - current_cdna_pos
 
             # ゲノム座標に変換
-
-            g_start = cds.start + offset_start
-            g_end = cds.start + offset_end
-            # if self.strand == '+':
-            #     g_start = cds.start + offset_start
-            #     g_end = cds.start + offset_end
-            # else:
-            #     g_end = cds.end - offset_start
-            #     g_start = cds.end - offset_end
+            if self.strand == '-':
+                g_end = cds.end - offset_start
+                g_start = cds.end - offset_end
+            else:
+                g_start = cds.start + offset_start
+                g_end = cds.start + offset_end
 
             # ドメイン feature を追加
             color = get_domain_color(domain_name, self.domain_color_map, DOMAIN_COLOR_PALETTE)
