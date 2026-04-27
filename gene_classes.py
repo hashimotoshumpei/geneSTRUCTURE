@@ -1,5 +1,17 @@
+from enum import Enum
 from color_utils import get_domain_color
 from config import DOMAIN_COLOR_PALETTE
+
+
+# =====================
+# 座標モード
+# =====================
+
+class CoordinateMode(str, Enum):
+    """座標モードの列挙型"""
+    RELATIVE = "relative"  # 相対座標（デフォルト）
+    ABSOLUTE = "absolute"  # 絶対座標（ゲノム座標）
+
 
 # =====================
 # クラス定義

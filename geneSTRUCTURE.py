@@ -62,6 +62,21 @@ def parse_args():
         help="Region end position (1-based)"
     )
 
+    parser.add_argument(
+        "--scale-bar",
+        action="store_true",
+        default=False,
+        help="Display scale bar in the output SVG"
+    )
+
+    parser.add_argument(
+        "--coordinate-mode",
+        dest="coordinate_mode",
+        choices=["relative", "absolute"],
+        default="relative",
+        help="Coordinate mode: relative (default) or absolute (genomic coordinates)"
+    )
+
     args = parser.parse_args()
     validate_args(parser, args)
     return args
@@ -117,7 +132,9 @@ def main():
             labels,
             args.start,
             args.end,
-            output_svg
+            output_svg,
+            show_scale_bar=args.scale_bar,
+            coordinate_mode=args.coordinate_mode
         )
         print(f"Finished! : {output_svg}")
         print(f"  Transcripts: {len(genes)}")
@@ -153,9 +170,9 @@ def main():
                     continue
 
                 gene.add_introns()
-                gene.to_relative()
 
                 # domain（AA座標 → ゲノム）
+                # 注: 座標変換は draw_gene_structure() 内で行われる
                 for start_aa, end_aa, name in domain_defs:
                     gene.add_domain_from_protein_coords(start_aa, end_aa, name)
 
@@ -166,7 +183,11 @@ def main():
 
                 output_svg = f"{output_prefix}/{transcript_id}{snps}{deletions}{insertions}{domains}.svg"
 
-                draw_gene_structure(gene, output_svg)
+                draw_gene_structure(
+                    gene, output_svg,
+                    show_scale_bar=args.scale_bar,
+                    coordinate_mode=args.coordinate_mode
+                )
                 print(f"Finished! : {output_svg}")
 
 
