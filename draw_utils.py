@@ -232,6 +232,8 @@ def draw_gene_structure(gene, output_svg, scale=2, extra_padding=100, shrink_fac
             y_line = y_pos + height_feature // 2
             mid_x = x_start + (x_end - x_start) / 2
             offset = 10  # くの字の高さ
+            del_color = FEATURE_COLORS.get('deletion', 'black')
+            if del_color == 'none': del_color = 'black'
             dwg.add(
                 dwg.polyline(
                     points=[
@@ -240,7 +242,7 @@ def draw_gene_structure(gene, output_svg, scale=2, extra_padding=100, shrink_fac
                         (x_end, y_line)
                     ],
                     fill='none',
-                    stroke=FEATURE_COLORS.get('deletion', 'black'),
+                    stroke=del_color,
                     stroke_width=1,
                     stroke_dasharray="2,2"
                 )
@@ -405,6 +407,7 @@ def draw_gene_structure(gene, output_svg, scale=2, extra_padding=100, shrink_fac
             x2 = legend_x + box_size
 
             del_color = FEATURE_COLORS.get('deletion', 'black')
+            if del_color == 'none': del_color = 'black'
             dwg.add(
                 dwg.polyline(
                     points=[
@@ -663,7 +666,9 @@ def draw_region_gene_structures(
                 # くの字型の折れ線
                 mid_x = x_start + width / 2
                 offset = 10
-                dwg.add(dwg.polyline(points=[(x_start, y_line), (mid_x, y_line - offset), (x_end, y_line)], fill='none', stroke='black', stroke_width=1, stroke_dasharray="2,2"))
+                del_color = FEATURE_COLORS.get('deletion', 'black')
+                if del_color == 'none': del_color = 'black'
+                dwg.add(dwg.polyline(points=[(x_start, y_line), (mid_x, y_line - offset), (x_end, y_line)], fill='none', stroke=del_color, stroke_width=1, stroke_dasharray="2,2"))
             elif feat.feature_type in ('exon', 'CDS', 'five_prime_UTR', 'three_prime_UTR'):
                 base_color = FEATURE_COLORS.get(feat.feature_type, 'gray')
                 fill_color = base_color
@@ -779,6 +784,7 @@ def draw_region_gene_structures(
             # くの字型
             y_mid = y_legend + box_size // 2
             del_color = FEATURE_COLORS.get('deletion', 'black')
+            if del_color == 'none': del_color = 'black'
             dwg.add(dwg.polyline(points=[(legend_x, y_mid), (legend_x + box_size // 2, y_mid - 6), (legend_x + box_size, y_mid)], fill="none", stroke=del_color, stroke_width=1.5, stroke_dasharray="2,2"))
         elif feat_key == 'insertion':
             y_mid = y_legend + box_size // 2
