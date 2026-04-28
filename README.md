@@ -60,7 +60,7 @@ python geneSTRUCTURE.py --input examples/gene_input.csv --gff examples/gff/trans
 ```
 
 
-## Examples
+## Examples (Basic)
 
 ### 1. Simple
 ![simple](examples/Os06t0160700-01.svg)
@@ -74,13 +74,38 @@ python geneSTRUCTURE.py --input examples/gene_input.csv --gff examples/gff/trans
 ### 4. Domain(s)
 ![simple](examples/Os06t0160700-01_DOM_1-200_domain1_200-300_domain2_300-400_domain3.svg)
 
-## Settings
-For custamizing visualization, please edit config.py.
+
+
+## Examples (Coodinate-mode)
+```
+python geneSTRUCTURE.py --input examples/gene_input.csv --gff examples/gff/transcripts.gff --output ./examples --coordinate-mode absolute
+```
+![simple](examples/Os06t0160700-01_abs.svg)
+![simple](examples/Os04t0648800-01_abs.svg)
 
 ```
-# =====================
-# 色とグラデーション設定フラグ
-# =====================
+python geneSTRUCTURE.py --input examples/gene_input.csv --gff examples/gff/transcripts.gff --output ./examples --coordinate-mode relative
+```
+![simple](examples/Os06t0160700-01_rlt.svg)
+![simple](examples/Os04t0648800-01_rlt.svg)
+
+## Examples (Region-mode)
+```
+python geneSTRUCTURE.py --gff examples/gff/transcripts.gff --chr chr02 --start 146000 --end 157000 --output ./examples --coordinate-mode absolute
+```
+![simple](examples/chr02_146000-157000_abs.svg)
+```
+python geneSTRUCTURE.py --gff examples/gff/transcripts.gff --chr chr02 --start 146000 --end 157000 --output ./examples --coordinate-mode relative
+```
+![simple](examples/chr02_146000-157000_rlt.svg)
+
+
+## Settings
+For custamizing visualization, please edit config.py.
+```
+# =================================
+# Color and Gradient Configuration
+# =================================
 
 utr_gradation = "off"
 exon_gradation = "off"
@@ -96,9 +121,9 @@ FEATURE_COLORS = {
     'highlight_intron': 'blue',
 }
 
-# =====================
-# ★描画の色やスタイル設定
-# =====================
+# ===================================
+# Rendering color and style settings
+# ===================================
 
 # FEATURE_COLORS = {
 #     'exon': 'lightblue',
@@ -107,7 +132,7 @@ FEATURE_COLORS = {
 #     'three_prime_UTR': 'lightgreen',
 #     'intron': 'black',
 #     'domain': 'green',
-#     'deletion': 'none',  # 塗りつぶしなし（点線表示用）
+#     'deletion': 'none',  # no fill
 #     'highlight_intron': 'blue',
 # }
 
@@ -136,7 +161,7 @@ FEATURE_OUTLINE_WIDTHS = {
     'intron': 1,
 }
 
-LEFT_MARGIN = 50  # 左側マージン
+LEFT_MARGIN = 50  # left mergin
 
 
 DOMAIN_COLOR_PALETTE = [
