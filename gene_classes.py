@@ -247,7 +247,7 @@ class GeneStructure:
                 self.deletion_regions.append(Deletion(d['start'], d['end']))
 
         new_features = []
-        structural_types = {'exon', 'CDS', 'five_prime_UTR', 'three_prime_UTR', 'intron'}
+        structural_types = {'exon', 'CDS', 'five_prime_UTR', 'three_prime_UTR', 'intron', 'mRNA', 'transcript'}
 
         # まずデリーション自体をフィーチャーとして追加
         for d in self.deletion_regions:
@@ -317,7 +317,7 @@ class GeneStructure:
             ]
 
     def to_relative(self):
-        exon_like = [f for f in self.features if f.feature_type in ('exon', 'CDS', 'five_prime_UTR', 'three_prime_UTR')]
+        exon_like = [f for f in self.features if f.feature_type in ('exon', 'CDS', 'five_prime_UTR', 'three_prime_UTR', 'mRNA', 'transcript')]
         if not exon_like:
             return 0
 
