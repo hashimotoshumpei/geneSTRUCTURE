@@ -247,7 +247,7 @@ class GeneStructure:
                 self.deletion_regions.append(Deletion(d['start'], d['end']))
 
         new_features = []
-        structural_types = {'exon', 'CDS', 'five_prime_UTR', 'three_prime_UTR', 'intron'}
+        structural_types = {'exon', 'CDS', 'five_prime_UTR', 'three_prime_UTR', 'intron', 'domain'}
 
         # まずデリーション自体をフィーチャーとして追加
         for d in self.deletion_regions:
@@ -317,14 +317,25 @@ class GeneStructure:
             ]
 
     def to_relative(self):
-        exon_like = [f for f in self.features if f.feature_type in ('exon', 'CDS', 'five_prime_UTR', 'three_prime_UTR')]
-        if not exon_like:
+        # 基準（1番）を決定するためのフィーチャーを選択
+        # ユーザー要望により、Exon または CDS の開始位置を基準とする
+        anchor_targets = [f for f in self.features if f.feature_type in ('exon', 'CDS')]
+        
+        # もし Exon/CDS がない場合は UTR を含めて探す（フォールバック）
+        if not anchor_targets:
+            anchor_targets = [f for f in self.features if f.feature_type in ('five_prime_UTR', 'three_prime_UTR')]
+        
+        # それでもない場合は全フィーチャーから探す
+        if not anchor_targets:
+            anchor_targets = self.features
+            
+        if not anchor_targets:
             return 0
 
         # プラス鎖: 最小値が基準 (anchor)
         # マイナス鎖: 最大値が基準 (anchor)
         all_coords = []
-        for f in exon_like:
+        for f in anchor_targets:
             all_coords.append(f.start)
             all_coords.append(f.end)
         
@@ -376,7 +387,7 @@ class GeneStructure:
 
     def add_domain_from_protein_coords(self, start_aa: int, end_aa: int, domain_name: str):
         """
-        アミノ酸座標（1-based）を基に、CDSからcDNA、そしてゲノム座標へと変換して
+        アミノ酸座標（1-based）を基に、CDSからcDNA、そして現在の座標系へと変換して
         ドメイン領域をfeaturesに追加する。
         """
 
@@ -384,12 +395,14 @@ class GeneStructure:
         cdna_start = (start_aa - 1) * 3 + 1
         cdna_end = end_aa * 3
 
-        # CDS features を取得してストランド順に並べ替え
+        # CDS features を取得
         cds_features = [f for f in self.features if f.feature_type == 'CDS']
-        if self.strand == '-':
-            cds_sorted = sorted(cds_features, key=lambda f: f.start, reverse=True)
-        else:
-            cds_sorted = sorted(cds_features, key=lambda f: f.start)
+        if not cds_features:
+            return
+
+        # すでに to_relative() が実行されている場合、
+        # プラス・マイナスに関わらず start が小さい順に並べれば 5' -> 3' になる
+        cds_sorted = sorted(cds_features, key=lambda f: f.start)
 
         current_cdna_pos = 1
 
@@ -410,13 +423,10 @@ class GeneStructure:
             offset_start = overlap_start - current_cdna_pos
             offset_end = overlap_end - current_cdna_pos
 
-            # ゲノム座標に変換
-            if self.strand == '-':
-                g_end = cds.end - offset_start
-                g_start = cds.end - offset_end
-            else:
-                g_start = cds.start + offset_start
-                g_end = cds.start + offset_end
+            # 現在の座標（相対座標化されていれば相対座標）で位置を決定
+            # 5'末端が常に start になっているため、プラス鎖と同じ計算式でOK
+            g_start = cds.start + offset_start
+            g_end = cds.start + offset_end
 
             # ドメイン feature を追加
             color = get_domain_color(domain_name, self.domain_color_map, DOMAIN_COLOR_PALETTE)
