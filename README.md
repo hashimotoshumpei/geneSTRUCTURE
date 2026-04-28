@@ -38,7 +38,7 @@ conda install -c conda-forge svgwrite
 
 ### Input data
 
-You can use following csv files.
+You can use following csv files.Domain information should be specified using amino acid coordinates, whereas all other features should be defined using DNA sequence coordinates. Positions are indexed such that the “A” of the start codon (ATG) is designated as position 1.
 
 |  transcript_id  | deletions | insertions |  snps  |                    domains                    |
 | :-------------: | :-------: | :--------: | :-----: | :-------------------------------------------: |
@@ -53,6 +53,11 @@ Here is a list of the arguments that can be used with this tool.
 | `-h`, `--help`         | Displays this help message and basic documentation.                    |
 | `-i`, `--input`        | Specifies the file path of the input CSV file [required].              |
 | `-o`, `--output`       | Specifies the dir path of the output image file.                      |
+| `--gff`       | Specifies the path of annotation file.                      |
+| `--chr`       | Specifies the chromosome ID in region mode.                      |
+| `--start`       | Specifies the start position in region mode.                   |
+| `--end`       | Specifies the end position in region mode.                     |
+| `--coordinate-mode`       | Displays scale [absolute/relatice]                      |
 
 ## Run
 ```
