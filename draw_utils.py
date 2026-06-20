@@ -20,7 +20,7 @@ def get_tick_params(range_size: int, shrink_factor: float = 30.0, scale: float =
     範囲サイズと物理的なスケールに応じて、重なり合わない適切な目盛り間隔と単位を返す
     """
     # 目標とする最小ピクセル間隔（ラベルが重ならないように）
-    min_pixel_step = 50 
+    min_pixel_step = 70
     # 最小ピクセル間隔を bp に換算
     min_bp_step = min_pixel_step * shrink_factor / scale
     
