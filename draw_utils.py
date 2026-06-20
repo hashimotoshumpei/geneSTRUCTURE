@@ -71,6 +71,33 @@ def get_insertion_base_width(length_bp: int, shrink_factor: float, scale: float)
     return max(min_width, min(scaled_width, max_width))
 
 
+def get_terminal_polygon_points(x_start: float, x_end: float, y_pos: float, height: int, strand: str = '+') -> List[tuple]:
+    """
+    終端 feature の矢印型 polygon 座標を返す。
+    region 描画では minus strand の 3' 端が左側に来るため、左向きに描く。
+    """
+    tip = min(height // 2, max(x_end - x_start, 0))
+    y_mid = y_pos + height / 2
+    y_bottom = y_pos + height
+
+    if strand == '-':
+        return [
+            (x_start, y_mid),
+            (x_start + tip, y_pos),
+            (x_end, y_pos),
+            (x_end, y_bottom),
+            (x_start + tip, y_bottom),
+        ]
+
+    return [
+        (x_start, y_pos),
+        (x_end - tip, y_pos),
+        (x_end, y_mid),
+        (x_end - tip, y_bottom),
+        (x_start, y_bottom),
+    ]
+
+
 def get_baseline_segments(actual_min_start: int, actual_max_end: int, deletion_regions: List[any]) -> List[tuple]:
     """
     全体の開始・終了座標とデリーション領域を基に、
@@ -262,17 +289,9 @@ def draw_gene_structure(gene, output_svg, scale=2, extra_padding=100, shrink_fac
             stroke_width = FEATURE_OUTLINE_WIDTHS.get(feat.feature_type, 1)
 
             if feat is terminal_feature:
-                # 右端が尖った polygon
-                tip = height_feature // 2
                 dwg.add(
                     dwg.polygon(
-                        points=[
-                            (x_start, y_pos),
-                            (x_end - tip, y_pos),
-                            (x_end, y_pos + height_feature / 2),
-                            (x_end - tip, y_pos + height_feature),
-                            (x_start, y_pos + height_feature)
-                        ],
+                        points=get_terminal_polygon_points(x_start, x_end, y_pos, height_feature),
                         fill=fill_color,
                         stroke=stroke_color,
                         stroke_width=stroke_width
@@ -645,7 +664,7 @@ def draw_region_gene_structures(
             gs, ge = min(f.start for f in all_features), max(f.end for f in all_features)
             gene_center_x = LEFT_MARGIN + ((gs + ge) / 2 - draw_start) / shrink_factor * scale
 
-        terminal_feature = get_terminal_feature(all_features, strand='+')
+        terminal_feature = get_terminal_feature(all_features, strand=gene.strand)
         
         deletion_list = [f for f in all_features if f.feature_type == 'deletion']
         # イントロン風のベースラインを描画 (デリーション領域を避ける)
@@ -685,17 +704,9 @@ def draw_region_gene_structures(
                 stroke_width = FEATURE_OUTLINE_WIDTHS.get(feat.feature_type, 1)
 
                 if feat is terminal_feature:
-                    # 右端が尖った polygon
-                    tip = height_feature // 2
                     dwg.add(
                         dwg.polygon(
-                            points=[
-                                (x_start, y_pos),
-                                (x_end - tip, y_pos),
-                                (x_end, y_pos + height_feature / 2),
-                                (x_end - tip, y_pos + height_feature),
-                                (x_start, y_pos + height_feature)
-                            ],
+                            points=get_terminal_polygon_points(x_start, x_end, y_pos, height_feature, gene.strand),
                             fill=fill_color,
                             stroke=stroke_color,
                             stroke_width=stroke_width
